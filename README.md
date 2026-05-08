@@ -8,7 +8,7 @@
    ```
 
 2. **Документация API:**
-   Откройте в браузере: [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs)
+   Откройте в браузере: [http://localhost:8000/docs](http://localhost:8000/docs)
 
 3. **Проверка работоспособности:**
    ```bash

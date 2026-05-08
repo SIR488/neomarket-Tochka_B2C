@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Optional, List
-from sqlmodel import Field, SQLModel, Relationship, Column
-from sqlalchemy import Column as SAColumn, String, Text, DateTime, Boolean, ForeignKey
+from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
 
 
