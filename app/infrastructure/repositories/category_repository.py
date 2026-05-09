@@ -1,6 +1,6 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from uuid import UUID
-from sqlalchemy import select, distinct
+from sqlalchemy import select, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.models import Category
 from sqlalchemy import func
@@ -90,42 +90,35 @@ class CategoryRepository:
             "max_price": price_row.max_price,
         }
     
-    async def get_facets(
-        self, 
-        category_id: UUID, 
-        filters: Optional[Dict[str, Any]] = None
-    ) -> List[tuple[str, str, int]]:       
-        query = (
+    async def get_ancestors(self, category_id: UUID):
+        """Возвращает список категорий от текущей до корня через CTE"""
+        
+        base_query = (
             select(
-                CharacteristicValue.name,
-                CharacteristicValue.value,
-                func.count(distinct(Product.id)).label("count")
+                Category.id, 
+                Category.name, 
+                Category.slug, 
+                Category.parent_id,
+                literal(1).label("level")
             )
-            .join(SKU, SKU.product_id == Product.id)
-            .join(CharacteristicValue, CharacteristicValue.sku_id == SKU.id)
-            .where(
-                Product.category_id == category_id,
-                Product.status == "MODERATED",
-                SKU.status == "ACTIVE"
-            )
+            .where(Category.id == category_id)
+            .cte(name="category_path", recursive=True)
         )
 
-        if filters:
-            for attr_name, attr_values in filters.items():
-                if not isinstance(attr_values, list):
-                    attr_values = [attr_values]
+        recursive_query = (
+            select(
+                Category.id, 
+                Category.name, 
+                Category.slug, 
+                Category.parent_id,
+                (base_query.c.level + 1).label("level")
+            )
+            .join(base_query, Category.id == base_query.c.parent_id)
+        )
 
-                subq = (
-                    select(SKU.product_id)
-                    .join(CharacteristicValue)
-                    .where(
-                        CharacteristicValue.name == attr_name.upper(),
-                        CharacteristicValue.value.in_(attr_values)
-                    )
-                )
-                query = query.where(Product.id.in_(subq))
+        category_cte = base_query.union_all(recursive_query)
 
-        query = query.group_by(CharacteristicValue.name, CharacteristicValue.value)
+        query = select(category_cte).order_by(category_cte.c.level.desc())
         
         result = await self.session.execute(query)
         return result.all()
