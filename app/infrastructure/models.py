@@ -1,10 +1,25 @@
 import uuid
+from uuid6 import uuid7
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
 
+
+class Customer(SQLModel, table=True):
+    __tablename__ = "customers"
+    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
+    name: str
+    password_hash: str
+
+class CustomerRead(SQLModel):
+    id: uuid.UUID
+    name: str
+
+class CustomerLogin(SQLModel):
+    name: str
+    password: str
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"

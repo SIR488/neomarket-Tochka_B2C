@@ -6,7 +6,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost:5432/neomarket_b2c"
-    JWT_SECRET: str = "secret"
+    JWT_SECRET_KEY: str = "your_secret"
+    JWT_ALGORITHM: str = "HS256"
+    JWT_ACCESS_TOKEN_EXPIRE_DAYS: int = 5
+    JWT_SECURE: bool = False
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
