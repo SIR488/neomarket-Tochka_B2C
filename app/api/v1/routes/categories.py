@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database import get_db
 from app.infrastructure.repositories.category_repository import CategoryRepository
 from app.application.services.category_service import CategoryService
-from app.api.v1.schemas.catalog import CategoryTreeResponse, CategoryDetailResponse
+from app.api.v1.schemas.catalog import CategoryTreeResponse, CategoryDetailResponse, FiltersResponse
 
 router = APIRouter()
 
@@ -35,3 +35,18 @@ async def get_category(
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
     return category
+
+@router.get("/{id}/filters", response_model=FiltersResponse, summary="Список фильтров категории")
+async def get_category_filters(
+    id: UUID,
+    service: CategoryService = Depends(get_category_service)
+) -> FiltersResponse:
+    filters = await service.get_category_filters(id)
+    
+    if filters is None:
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Category with id {id} not found"
+        )
+        
+    return filters

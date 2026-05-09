@@ -1,8 +1,8 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Optional
+from typing import Optional, Annotated, Union, Literal
 from uuid import UUID
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, Discriminator
 
 class SortOption(StrEnum):
     rating = "rating"
@@ -108,16 +108,30 @@ class FilterType(StrEnum):
     range = "range"
     switch = "switch"
 
-class Filter(BaseModel):
+class ListFilter(BaseModel):
     slug: str
     name: str
-    type: FilterType
-    value: Optional[list[str | int | float]] = None
-    min: Optional[float] = None
-    max: Optional[float] = None
+    type: Literal["list"] = "list"
+    value: list[str | int | float]
 
+class RangeFilter(BaseModel):
+    slug: str
+    name: str
+    type: Literal["range"] = "range"
+    min: float
+    max: float
+
+class SwitchFilter(BaseModel):
+    slug: str
+    name: str
+    type: Literal["switch"] = "switch"
+
+FilterItem = Annotated[
+    Union[ListFilter, RangeFilter, SwitchFilter],
+    Field(discriminator="type")
+]
 class FiltersResponse(BaseModel):
-    items: list[Filter]
+    items: list[FilterItem]
 
 class FacetValue(BaseModel):
     value: str
