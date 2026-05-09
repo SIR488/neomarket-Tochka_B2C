@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.models import Category
 from sqlalchemy import func
@@ -89,3 +89,43 @@ class CategoryRepository:
             "min_price": price_row.min_price,
             "max_price": price_row.max_price,
         }
+    
+    async def get_facets(
+        self, 
+        category_id: UUID, 
+        filters: Optional[Dict[str, Any]] = None
+    ) -> List[tuple[str, str, int]]:       
+        query = (
+            select(
+                CharacteristicValue.name,
+                CharacteristicValue.value,
+                func.count(distinct(Product.id)).label("count")
+            )
+            .join(SKU, SKU.product_id == Product.id)
+            .join(CharacteristicValue, CharacteristicValue.sku_id == SKU.id)
+            .where(
+                Product.category_id == category_id,
+                Product.status == "MODERATED",
+                SKU.status == "ACTIVE"
+            )
+        )
+
+        if filters:
+            for attr_name, attr_values in filters.items():
+                if not isinstance(attr_values, list):
+                    attr_values = [attr_values]
+
+                subq = (
+                    select(SKU.product_id)
+                    .join(CharacteristicValue)
+                    .where(
+                        CharacteristicValue.name == attr_name.upper(),
+                        CharacteristicValue.value.in_(attr_values)
+                    )
+                )
+                query = query.where(Product.id.in_(subq))
+
+        query = query.group_by(CharacteristicValue.name, CharacteristicValue.value)
+        
+        result = await self.session.execute(query)
+        return result.all()

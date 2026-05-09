@@ -1,4 +1,4 @@
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, List
 from uuid import UUID
 from app.infrastructure.repositories.product_repository import ProductRepository
 from app.api.v1.schemas.catalog import (
@@ -8,7 +8,10 @@ from app.api.v1.schemas.catalog import (
     Sku,
     Image, 
     Characteristic,
-    SortOption
+    SortOption,
+    FacetsResponse,
+    Facet,
+    FacetValue
 )
 
 class ProductService:
@@ -80,4 +83,28 @@ class ProductService:
                     images=[Image(url=s.image_url, order=1)] if s.image_url else []
                 ) for s in db_p.skus
             ]
+        )
+    
+    async def get_product_facets(
+        self, 
+        category_id: UUID, 
+        filters: Dict[str, Any]
+    ) -> FacetsResponse:
+        raw_facets = await self.repository.get_facets(category_id, filters)
+
+        temp_map: Dict[str, List[FacetValue]] = {}
+        
+        for name, value, count in raw_facets:
+            if name not in temp_map:
+                temp_map[name] = []
+            temp_map[name].append(FacetValue(value=value, count=count))
+            
+        facets_list = [
+            Facet(name=name, values=values) 
+            for name, values in temp_map.items()
+        ]
+        
+        return FacetsResponse(
+            category_id=category_id,
+            facets=facets_list
         )
