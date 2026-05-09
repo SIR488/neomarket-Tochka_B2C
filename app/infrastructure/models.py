@@ -1,4 +1,4 @@
-import uuid
+from uuid import UUID
 from uuid6 import uuid7
 from datetime import datetime, timezone
 from typing import Optional, List
@@ -9,12 +9,12 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
 
 class Customer(SQLModel, table=True):
     __tablename__ = "customers"
-    id: uuid.UUID = Field(default_factory=uuid7, primary_key=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
     name: str
     password_hash: str
 
 class CustomerRead(SQLModel):
-    id: uuid.UUID
+    id: UUID
     name: str
 
 class CustomerLogin(SQLModel):
@@ -23,7 +23,7 @@ class CustomerLogin(SQLModel):
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
     name: str
     legal_name: Optional[str] = None
     inn: str
@@ -34,11 +34,11 @@ class Seller(SQLModel, table=True):
 
 class Category(SQLModel, table=True):
     __tablename__ = "categories"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
     name: str
     slug: str = Field(unique=True, index=True)
     description: Optional[str] = None
-    parent_id: Optional[uuid.UUID] = Field(default=None, foreign_key="categories.id")
+    parent_id: Optional[UUID] = Field(default=None, foreign_key="categories.id")
     image_url: Optional[str] = None
     is_active: bool = Field(default=True)
     
@@ -59,9 +59,9 @@ class Category(SQLModel, table=True):
 
 class Product(SQLModel, table=True):
     __tablename__ = "products"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    seller_id: uuid.UUID = Field(foreign_key="sellers.id")
-    category_id: Optional[uuid.UUID] = Field(default=None, foreign_key="categories.id")
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    seller_id: UUID = Field(foreign_key="sellers.id")
+    category_id: Optional[UUID] = Field(default=None, foreign_key="categories.id")
     title: str
     slug: str = Field(unique=True, index=True)
     image_url: Optional[str] = None
@@ -79,17 +79,17 @@ class Product(SQLModel, table=True):
 
 class CharacteristicValue(SQLModel, table=True):
     __tablename__ = "sku_characteristics"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    sku_id: uuid.UUID = Field(foreign_key="skus.id")
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    sku_id: UUID = Field(foreign_key="skus.id")
     name: str
     value: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class SKU(SQLModel, table=True):
     __tablename__ = "skus"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    product_id: uuid.UUID = Field(foreign_key="products.id")
-    seller_id: uuid.UUID = Field(foreign_key="sellers.id")
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    product_id: UUID = Field(foreign_key="products.id")
+    seller_id: UUID = Field(foreign_key="sellers.id")
     name: str
     price: int  # В копейках/центах
     old_price: Optional[int] = Field(default=None)
@@ -105,8 +105,8 @@ class SKU(SQLModel, table=True):
 
 class Stock(SQLModel, table=True):
     __tablename__ = "stocks"
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    sku_id: uuid.UUID = Field(foreign_key="skus.id", unique=True)
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    sku_id: UUID = Field(foreign_key="skus.id", unique=True)
     quantity: int = Field(default=0)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
