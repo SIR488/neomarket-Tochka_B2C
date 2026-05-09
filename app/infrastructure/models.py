@@ -52,6 +52,8 @@ class Product(SQLModel, table=True):
     image_url: Optional[str] = None
     description: Optional[str] = None
     status: str = Field(default="CREATED")
+    rating: float = Field(default=0.0)
+    orders_count: int = Field(default=0)
     
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -75,6 +77,7 @@ class SKU(SQLModel, table=True):
     seller_id: uuid.UUID = Field(foreign_key="sellers.id")
     name: str
     price: int  # В копейках/центах
+    old_price: Optional[int] = Field(default=None)
     image_url: Optional[str] = None
     status: str = Field(default="ACTIVE")
     

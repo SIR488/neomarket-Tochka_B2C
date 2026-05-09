@@ -13,7 +13,7 @@ class CategoryRepository:
     async def get_all_active(self) -> List[Category]:
         """Получить все активные категории для построения дерева"""
         
-        query = select(Category).where(Category.is_active == True).order_by(Category.name)
+        query = select(Category).where(Category.is_active.is_(True)).order_by(Category.name)
         result = await self.session.execute(query)
         return list(result.scalars().all())
 

@@ -14,8 +14,8 @@ class CategoryService:
         nodes: Dict[UUID, CategoryNode] = {
             cat.id: CategoryNode(
                 id=cat.id, 
-                name=cat.name, 
-                parent_id=cat.parent_id, 
+                name=cat.name,
+                parent_id=cat.parent_id,
                 children=[]
             ) 
             for cat in categories

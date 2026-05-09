@@ -4,7 +4,7 @@ from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.models import Product, SKU, CharacteristicValue, Stock
+from app.infrastructure.models import Product, SKU, CharacteristicValue, Category
 from app.api.v1.schemas.catalog import SortOption
 
 class ProductRepository:
@@ -30,7 +30,18 @@ class ProductRepository:
         ).where(Product.status == "MODERATED")
 
         if category_id:
-            query = query.where(Product.category_id == category_id)
+            category_cte = (
+                select(Category.id, Category.parent_id)
+                .where(Category.id == category_id)
+                .cte(name="category_tree", recursive="True")
+            )
+
+            category_cte = category_cte.union_all(
+                select(Category.id, Category.parent_id)
+                .join(category_cte, Category.id == category_cte.c.parent_id)
+            )
+
+            query = query.where(Product.category_id.in_(select(category_cte.c.id)))
 
         if search and len(search) >= 3:
             query = query.where(
@@ -54,10 +65,52 @@ class ProductRepository:
                 query = query.where(Product.id.in_(sku_subquery))
 
         if sort:
-            if sort == SortOption.price_asc:
-                query = query.join(SKU).order_by(SKU.price.asc())
-            elif sort == SortOption.price_desc:
-                query = query.join(SKU).order_by(SKU.price.desc())
+            match sort:
+                case SortOption.price_asc | SortOption.price_desc:
+                    min_price_subq = (
+                        select(SKU.product_id, func.min(SKU.price).label("min_price"))
+                        .where(SKU.status == "ACTIVE")
+                        .group_by(SKU.product_id)
+                        .subquery()
+                    )
+
+                    query = query.join(
+                        min_price_subq, Product.id == min_price_subq.c.product_id
+                    )
+
+                    if sort == SortOption.price_asc:
+                        query = query.order_by(min_price_subq.c.min_price.asc())
+                    else:
+                        query = query.order_by(min_price_subq.c.min_price.desc())
+
+                case SortOption.date_desc:
+                    query = query.order_by(Product.created_at.desc())
+
+                case SortOption.popularity:
+                    query = query.order_by(Product.orders_count.desc())
+
+                case SortOption.rating:
+                    query = query.order_by(Product.rating.desc())
+
+                case SortOption.discount_desc:
+                    discount_subq = (
+                        select(SKU.product_id,
+                               func.max(SKU.old_price - SKU.price).label("max_discount")
+                        )
+                        .where(SKU.status == "ACTIVE")
+                        .where(SKU.old_price > SKU.price)
+                        .group_by(SKU.product_id)
+                        .subquery()
+                    )
+                    query = query.outerjoin(
+                        discount_subq, Product.id == discount_subq.c.product_id
+                    )
+
+                    query = query.order_by(
+                        func.coalesce(discount_subq.c.max_discount, 0).desc()
+                    )
+
+
 
         count_query = select(func.count()).select_from(query.subquery())
         total_count = await self.session.execute(count_query)
