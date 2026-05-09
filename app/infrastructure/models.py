@@ -13,14 +13,6 @@ class Customer(SQLModel, table=True):
     name: str
     password_hash: str
 
-class CustomerRead(SQLModel):
-    id: UUID
-    name: str
-
-class CustomerLogin(SQLModel):
-    name: str
-    password: str
-
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"
     id: UUID = Field(default_factory=uuid7, primary_key=True)

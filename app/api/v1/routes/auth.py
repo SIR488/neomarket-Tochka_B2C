@@ -2,7 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.infrastructure.database import get_db
-from app.infrastructure.models import Customer, CustomerRead, CustomerLogin
+from app.infrastructure.models import Customer
+from app.api.v1.schemas import CustomerRead, CustomerLogin
 from app.api.v1.dependencies.security import hash_password, set_auth_cookie, verify_password, delete_auth_cookie
 
 router = APIRouter()
