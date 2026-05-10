@@ -77,6 +77,8 @@ class CharacteristicValue(SQLModel, table=True):
     value: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    sku: Optional["SKU"] = Relationship(back_populates="characteristics")
+
 class SKU(SQLModel, table=True):
     __tablename__ = "skus"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
@@ -91,7 +93,7 @@ class SKU(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     product: Product = Relationship(back_populates="skus")
-    characteristics: List[CharacteristicValue] = Relationship()
+    characteristics: List[CharacteristicValue] = Relationship(back_populates="sku")
     stock: Optional["Stock"] = Relationship(back_populates="sku")
 
 class Stock(SQLModel, table=True):

@@ -1,7 +1,7 @@
 from sqladmin import Admin, ModelView
 from app.infrastructure.models import Category, Product, SKU, Stock, Seller, Customer, CharacteristicValue
 
-# Настраиваем отображение каждой модели
+
 class CategoryAdmin(ModelView, model=Category):
     column_list = [Category.id, Category.name, Category.slug, Category.is_active]
     column_searchable_list = [Category.name, Category.slug]
