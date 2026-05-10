@@ -3,9 +3,18 @@ from uuid6 import uuid7
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
 
+
+class Favorite(SQLModel, table=True):
+    __tablename__ = 'favorites'
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID
+    product_id: UUID
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (UniqueConstraint('customer_id', 'product_id'),)
 
 class Customer(SQLModel, table=True):
     __tablename__ = "customers"

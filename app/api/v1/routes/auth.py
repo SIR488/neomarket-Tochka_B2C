@@ -9,7 +9,7 @@ from app.api.v1.dependencies.security import hash_password, set_auth_cookie, ver
 router = APIRouter()
 
 @router.post("/register", response_model=CustomerRead)
-async def register_customer(customer: CustomerLogin, response: Response, session: AsyncSession = Depends(get_db)):  # <- AsyncSession
+async def register_customer(customer: CustomerLogin, response: Response, session: AsyncSession = Depends(get_db)):
     """Регистрация пользователя."""
     statement = select(Customer).where(Customer.name == customer.name)
     result = await session.execute(statement)
