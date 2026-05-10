@@ -81,7 +81,6 @@ class SKU(SQLModel, table=True):
     __tablename__ = "skus"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     product_id: UUID = Field(foreign_key="products.id")
-    seller_id: UUID = Field(foreign_key="sellers.id")
     name: str
     price: int  # В копейках/центах
     old_price: Optional[int] = Field(default=None)

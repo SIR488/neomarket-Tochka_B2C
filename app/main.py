@@ -4,6 +4,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 
+from app.admin import setup_admin
+from app.infrastructure.database import engine
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.infrastructure.database import create_tables
@@ -38,6 +40,8 @@ def get_application() -> FastAPI:
     return application
 
 app = get_application()
+
+setup_admin(app, engine)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
