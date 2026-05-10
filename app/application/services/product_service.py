@@ -108,3 +108,26 @@ class ProductService:
             category_id=category_id,
             facets=facets_list
         )
+    
+    async def get_sku_detail(self, product_id: UUID, sku_id: UUID) -> Sku:
+        sku_db = await self.repository.get_sku_with_details(product_id, sku_id)
+        
+        if not sku_db:
+            return None
+
+        if sku_db.product.status != "MODERATED":
+            raise PermissionError("Product is under moderation")
+
+        return Sku(
+            id=sku_db.id,
+            name=sku_db.name,
+            price=float(sku_db.price / 100),
+            quantity=sku_db.stock.quantity if sku_db.stock else 0,
+            characteristics=[
+                Characteristic(name=c.name, value=c.value) 
+                for c in sku_db.characteristics
+            ],
+            images=[
+                Image(url=sku_db.image_url, order=1)
+            ] if sku_db.image_url else []
+        )

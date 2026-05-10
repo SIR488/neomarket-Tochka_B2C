@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database import get_db
+from app.api.v1.dependencies.customer_depends import get_current_customer
 from app.infrastructure.repositories.product_repository import ProductRepository
 from app.application.services.product_service import ProductService
 from app.api.v1.schemas.catalog import (
@@ -12,6 +13,7 @@ from app.api.v1.schemas.catalog import (
     ProductShortListResponse,
     SkuShort,
     SortOption,
+    Sku
 )
 
 router = APIRouter()
@@ -86,3 +88,25 @@ async def list_product_skus(
         SkuShort(name=s.name, price=s.price, image=s.images[0] if s.images else None) 
         for s in product.skus
     ]
+
+@router.get("/{product_id}/skus/{sku_id}", response_model=Sku, summary="Информация о SKU")
+async def get_sku_info(
+    product_id: UUID,
+    sku_id: UUID,
+    service: ProductService = Depends(get_product_service)
+):
+    try:
+        sku_detail = await service.get_sku_detail(product_id, sku_id)
+        
+        if sku_detail is None:
+            raise HTTPException(status_code=404, detail="SKU or Product not found")
+            
+        return sku_detail
+
+    except PermissionError:
+        raise HTTPException(
+            status_code=403, 
+            detail="Access denied: product is not moderated"
+        )
+    except Exception as e:
+        raise e

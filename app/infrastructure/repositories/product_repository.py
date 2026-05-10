@@ -4,7 +4,7 @@ from sqlalchemy import select, func, or_, and_, distinct
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.models import Product, SKU, CharacteristicValue, Category
+from app.infrastructure.models import Product, SKU, CharacteristicValue, Category, Stock
 from app.api.v1.schemas.catalog import SortOption
 
 class ProductRepository:
@@ -173,3 +173,19 @@ class ProductRepository:
         
         result = await self.session.execute(query)
         return result.all()
+    
+    async def get_sku_with_details(self, product_id: UUID, sku_id: UUID) -> Optional[SKU]:
+        query = (
+            select(SKU)
+            .options(
+                selectinload(SKU.characteristics),
+                selectinload(SKU.stock),
+                selectinload(SKU.product)
+            )
+            .where(
+                SKU.id == sku_id,
+                SKU.product_id == product_id
+            )
+        )
+        result = await self.session.execute(query)
+        return result.scalar_one_or_none()
