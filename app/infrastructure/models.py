@@ -6,27 +6,6 @@ from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
 
-class Cart(SQLModel, table=True):
-    __tablename__ = "carts"
-    id: UUID = Field(default_factory=uuid7, primary_key=True)
-    customer_id: UUID = Field(foreign_key="customers.id")
-
-    cart_items: List["CartItem"] = Relationship(back_populates="cart")
-
-class CartItem(SQLModel, table=True):
-    __tablename__ = "cart_items"
-    id: UUID = Field(default_factory=uuid7, primary_key=True)
-    cart_id: UUID = Field(foreign_key="carts.id")
-    sku_id: UUID = Field(foreign_key="skus.id")
-    quantity: int = Field(default=1, nullable=False)
-
-    cart: Cart = Relationship(back_populates="cart_items")
-
-class CartItemRead(SQLModel):
-    sku_id: UUID = Field(foreign_key="skus.id")
-    quantity: int = Field(default=1, nullable=False)
-    available: bool = Field(default=True, nullable=False)
-    unavailable_reason: Optional[str]
 
 class Favorite(SQLModel, table=True):
     __tablename__ = 'favorites'
@@ -133,3 +112,24 @@ class Stock(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     sku: SKU = Relationship(back_populates="stock")
+
+class Cart(SQLModel, table=True):
+    __tablename__ = 'carts'
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id", unique=True, index=True)
+    
+    cart_items: List["CartItem"] = Relationship(
+        back_populates="cart",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+class CartItem(SQLModel, table=True):
+    __tablename__ = 'cart_items'
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    cart_id: UUID = Field(foreign_key="carts.id")
+    sku_id: UUID = Field(foreign_key="skus.id")
+    quantity: int = Field(default=1, nullable=False)
+    unit_price_at_add: Optional[int] = Field(default=None)
+
+    cart: Cart = Relationship(back_populates="cart_items")
+    sku: SKU = Relationship()

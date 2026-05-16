@@ -1,10 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from typing import Optional
+from uuid import UUID
+
 from app.infrastructure.database import get_db
 from app.infrastructure.models import Customer
-from app.api.v1.schemas import CustomerRead, CustomerLogin
+from app.api.v1.schemas.customer import CustomerRead, CustomerLogin
 from app.api.v1.dependencies.security import hash_password, set_auth_cookie, verify_password, delete_auth_cookie
+from app.api.v1.dependencies.cart_depends import merge_guest_cart
 
 router = APIRouter()
 
@@ -29,15 +33,22 @@ async def register_customer(customer: CustomerLogin, response: Response, session
     return db_customer
 
 @router.post("/login", response_model=CustomerRead)
-async def login_customer(customer: CustomerLogin, response: Response, session: AsyncSession = Depends(get_db)):  # <- AsyncSession
-    """Авторизация пользователя."""
+async def login_customer(
+    customer: CustomerLogin, 
+    response: Response, 
+    session: AsyncSession = Depends(get_db),
+    session_id: Optional[UUID] = Header(alias="X-Session-Id", default=None)
+):
     statement = select(Customer).where(Customer.name == customer.name)
     result = await session.execute(statement)
     existing_customer = result.scalar_one_or_none()
-    if not existing_customer:
+    if not existing_customer or not verify_password(customer.password, existing_customer.password_hash):
         raise HTTPException(status_code=401, detail="Неверное имя или пароль")
-    if not verify_password(customer.password, existing_customer.password_hash):
-        raise HTTPException(status_code=401, detail="Неверное имя или пароль")
+
+    if session_id:
+        await merge_guest_cart(session, existing_customer.id, session_id)
+
+    await session.commit()
     
     set_auth_cookie(response, customer_id=existing_customer.id)
     return existing_customer
