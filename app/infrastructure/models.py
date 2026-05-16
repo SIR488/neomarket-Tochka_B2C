@@ -3,9 +3,18 @@ from uuid6 import uuid7
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, String, Text, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
 
+
+class Favorite(SQLModel, table=True):
+    __tablename__ = 'favorites'
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id")
+    product_id: UUID = Field(foreign_key="products.id")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (UniqueConstraint('customer_id', 'product_id'),)
 
 class Customer(SQLModel, table=True):
     __tablename__ = "customers"
@@ -103,3 +112,24 @@ class Stock(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     sku: SKU = Relationship(back_populates="stock")
+
+class Cart(SQLModel, table=True):
+    __tablename__ = 'carts'
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id", unique=True, index=True)
+    
+    cart_items: List["CartItem"] = Relationship(
+        back_populates="cart",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+class CartItem(SQLModel, table=True):
+    __tablename__ = 'cart_items'
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    cart_id: UUID = Field(foreign_key="carts.id")
+    sku_id: UUID = Field(foreign_key="skus.id")
+    quantity: int = Field(default=1, nullable=False)
+    unit_price_at_add: Optional[int] = Field(default=None)
+
+    cart: Cart = Relationship(back_populates="cart_items")
+    sku: SKU = Relationship()
