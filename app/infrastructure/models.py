@@ -3,16 +3,18 @@ from uuid6 import uuid7
 from datetime import datetime, timezone
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
-from sqlalchemy import Column, UniqueConstraint
+from sqlalchemy import Column, UniqueConstraint, DateTime
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
-
 
 class Favorite(SQLModel, table=True):
     __tablename__ = 'favorites'
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     customer_id: UUID = Field(foreign_key="customers.id")
     product_id: UUID = Field(foreign_key="products.id")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
 
     __table_args__ = (UniqueConstraint('customer_id', 'product_id'),)
 
@@ -48,8 +50,14 @@ class Category(SQLModel, table=True):
     seo_description: Optional[str] = None
     meta_tags: Optional[dict] = Field(default_factory=dict, sa_column=Column(JSONB))
     
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
 
     parent: Optional["Category"] = Relationship(
         sa_relationship_kwargs={"remote_side": "Category.id"},
@@ -71,8 +79,14 @@ class Product(SQLModel, table=True):
     rating: float = Field(default=0.0)
     orders_count: int = Field(default=0)
     
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
     
     seller: Seller = Relationship(back_populates="products")
     category: Optional[Category] = Relationship(back_populates="products")
@@ -84,7 +98,10 @@ class CharacteristicValue(SQLModel, table=True):
     sku_id: UUID = Field(foreign_key="skus.id")
     name: str
     value: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
 
 class SKU(SQLModel, table=True):
     __tablename__ = "skus"
@@ -97,8 +114,14 @@ class SKU(SQLModel, table=True):
     image_url: Optional[str] = None
     status: str = Field(default="ACTIVE")
     
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
 
     product: Product = Relationship(back_populates="skus")
     characteristics: List[CharacteristicValue] = Relationship()
@@ -109,8 +132,10 @@ class Stock(SQLModel, table=True):
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     sku_id: UUID = Field(foreign_key="skus.id", unique=True)
     quantity: int = Field(default=0)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
     sku: SKU = Relationship(back_populates="stock")
 
 class Cart(SQLModel, table=True):
