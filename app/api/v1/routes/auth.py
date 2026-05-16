@@ -46,7 +46,7 @@ async def login_customer(
         raise HTTPException(status_code=401, detail="Неверное имя или пароль")
 
     if session_id:
-        await merge_guest_cart(session, existing_customer.id, session_id)
+        await merge_guest_cart(existing_customer.id, session_id)
 
     await session.commit()
     

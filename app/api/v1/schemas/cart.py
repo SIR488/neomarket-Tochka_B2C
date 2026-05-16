@@ -42,5 +42,6 @@ class CartValidationIssue(BaseModel):
     new_value: Optional[int | str] = None
 
 class CartValidationResponse(BaseModel):
+    is_valid: bool
     cart: CartResponse
     issues: List[CartValidationIssue] = []
