@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.core.exception_handlers import register_exception_handlers
 from app.infrastructure.database import create_tables
 
 @asynccontextmanager
@@ -18,6 +19,8 @@ def get_application() -> FastAPI:
         version=settings.VERSION,
         openapi_url=f"{settings.API_V1_STR}/openapi.json",
     )
+
+    register_exception_handlers(application)
 
     application.add_middleware(
         CORSMiddleware,
