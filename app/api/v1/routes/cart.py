@@ -11,7 +11,7 @@ from app.api.v1.dependencies.cart_depends import resolve_cart, get_cart_service
 
 router = APIRouter()
 
-@router.get("/", response_model=CartResponse, status_code=200)
+@router.get("/", response_model=CartResponse, status_code=200, summary="Получить корзину")
 async def get_cart(
         cart_id: UUID = Depends(resolve_cart),
         service: CartService = Depends(get_cart_service)
@@ -20,14 +20,14 @@ async def get_cart(
 
     return cart_response
 
-@router.delete("/", status_code=204)
+@router.delete("/", status_code=204, summary="Очистить корзину")
 async def clear_cart(
         cart_id: UUID = Depends(resolve_cart),
         service: CartService = Depends(get_cart_service)
 ):
     return await service.clear_cart(cart_id)
 
-@router.post("/items", response_model=CartResponse, status_code=200)
+@router.post("/items", response_model=CartResponse, status_code=200, summary="Добавить SKU в корзину")
 async def add_cart_item(
         body: CartItemAddRequest,
         cart_id: UUID = Depends(resolve_cart),
@@ -48,7 +48,7 @@ async def add_cart_item(
 
     return cart_response
 
-@router.patch("/items/{sku_id}", response_model=CartResponse, status_code=200)
+@router.patch("/items/{sku_id}", response_model=CartResponse, status_code=200, summary="Изменить количество SKU в корзине")
 async def update_cart_item(
         sku_id: UUID,
         body: dict,
@@ -70,7 +70,7 @@ async def update_cart_item(
 
     return cart_response
 
-@router.delete("/items/{sku_id}", response_model=CartResponse, status_code=200)
+@router.delete("/items/{sku_id}", response_model=CartResponse, status_code=200, summary="Удалить SKU из корзины")
 async def remove_cart_item(
         sku_id: UUID,
         cart_id: UUID = Depends(resolve_cart),
@@ -83,7 +83,7 @@ async def remove_cart_item(
 
     return cart_response
 
-@router.post("/validate", response_model=CartValidationResponse, status_code=200)
+@router.post("/validate", response_model=CartValidationResponse, status_code=200, summary="Валидировать корзину перед чекаутом")
 async def validate_cart(
         cart_id: UUID = Depends(resolve_cart),
         service: CartService = Depends(get_cart_service)
@@ -95,10 +95,11 @@ async def validate_cart(
 
     return validation_response
 
+@router.post("/merge", response_model=CartResponse, status_code=200, summary=" Явное слияние гостевой корзины с пользовательской")
 async def merge_cart_endpoint(
     session_id: UUID = Header(alias="X-Session-Id"),
     customer_id: UUID = Depends(get_current_customer),
-        service: CartService = Depends(get_cart_service)
+    service: CartService = Depends(get_cart_service)
 ):
     cart_response = await service.merge_guest_cart(customer_id, session_id)
 

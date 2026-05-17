@@ -1,6 +1,8 @@
 from sqlmodel import SQLModel
 from uuid import UUID
-
+from pydantic import BaseModel, EmailStr, Field, HttpUrl
+from typing import Optional, Annotated, Union, Literal
+from datetime import datetime, timezone, date
 
 class CustomerReadShort(SQLModel):
     id: UUID
@@ -8,7 +10,7 @@ class CustomerReadShort(SQLModel):
 
 class CustomerResponse(BaseModel):
     id: UUID
-    email: EmailStr
+    email: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     phone: Optional[str] = None

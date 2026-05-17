@@ -15,19 +15,7 @@ async def _get_category_service(db: AsyncSession = Depends(get_db)) -> Favorites
     repository = FavoriteRepository(db)
     return FavoritesService(repository)
 
-@router.put("/{product_id}", status_code=204)
-async def add_to_favorites(
-    product_id: UUID,
-    customer_id: UUID = Depends(get_current_customer),
-    service: FavoritesService = Depends(_get_category_service)
-):
-    result = await service.add_to_favorites(customer_id, product_id)
-    if not  result:
-        raise HTTPException(status_code=404, detail="Товар не найден")
-
-    return None
-
-@router.get("", response_model=list[FavoriteRead], status_code=200)
+@router.get("", response_model=list[FavoriteRead], status_code=200, summary="Избранные товары")
 async def get_favorites(
     customer_id: UUID = Depends(get_current_customer),
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
@@ -40,7 +28,19 @@ async def get_favorites(
 
     return favorites
 
-@router.delete("/{product_id}", status_code=204)
+@router.put("/{product_id}", status_code=204, summary="Добавить товар в избранное (Идемпотентно")
+async def add_to_favorites(
+    product_id: UUID,
+    customer_id: UUID = Depends(get_current_customer),
+    service: FavoritesService = Depends(_get_category_service)
+):
+    result = await service.add_to_favorites(customer_id, product_id)
+    if not  result:
+        raise HTTPException(status_code=404, detail="Товар не найден")
+
+    return None
+
+@router.delete("/{product_id}", status_code=204, summary="Удалить из избранного")
 async def delete_favorite(
     product_id: UUID,
     customer_id: UUID = Depends(get_current_customer),

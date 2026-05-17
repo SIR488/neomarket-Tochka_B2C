@@ -21,7 +21,7 @@ class Favorite(SQLModel, table=True):
 class Customer(SQLModel, table=True):
     __tablename__ = "customers"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
-    email: str = Field(sa_column=UniqueConstraint('email'), unique=True)
+    email: str = Field(sa_column=UniqueConstraint('email'))
     first_name: str
     last_name: str
     date_of_birth: date

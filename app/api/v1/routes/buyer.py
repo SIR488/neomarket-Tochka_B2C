@@ -16,7 +16,7 @@ async def get_breadcrumb_service(db: AsyncSession = Depends(get_db)) -> Customer
     repository = CustomerRepository(db)
     return CustomerService(repository)
 
-@router.get("/", response_model=CustomerResponse, status_code=200)
+@router.get("", response_model=CustomerResponse, status_code=200, summary="Профиль текущего пользователя")
 async def get_customer(
         customer_id: Optional[UUID] = Depends(get_current_customer_id_optional),
         service: CustomerService = Depends(get_breadcrumb_service)
@@ -30,7 +30,7 @@ async def get_customer(
 
     return response
 
-@router.patch("/", response_model=CustomerResponse, status_code=200)
+@router.patch("", response_model=CustomerResponse, status_code=200, summary="Частичное обновление профиля")
 async def update_current_buyer(
     request: CustomerUpdateRequest,
     customer_id: Optional[UUID] = Depends(get_current_customer_id_optional),
@@ -51,7 +51,7 @@ async def update_current_buyer(
     return customer
 
 
-@router.delete("/", status_code=204)
+@router.delete("", status_code=204, summary="Soft-delete профиля")
 async def delete_current_buyer(
     customer_id: Optional[UUID] = Depends(get_current_customer_id_optional),
     service: CustomerService = Depends(get_breadcrumb_service),
