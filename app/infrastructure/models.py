@@ -1,10 +1,10 @@
 from uuid import UUID
 from uuid6 import uuid7
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, UniqueConstraint, DateTime
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PSU_UUID
+from sqlalchemy.dialects.postgresql import JSONB
 
 class Favorite(SQLModel, table=True):
     __tablename__ = 'favorites'
@@ -21,8 +21,21 @@ class Favorite(SQLModel, table=True):
 class Customer(SQLModel, table=True):
     __tablename__ = "customers"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
+    email: str = Field(sa_column=UniqueConstraint('email'), unique=True)
+    first_name: str
+    last_name: str
+    date_of_birth: date
+    is_active: bool = Field(default=True)
     name: str
     password_hash: str
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column={"type_": DateTime(timezone=True)}
+    )
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"

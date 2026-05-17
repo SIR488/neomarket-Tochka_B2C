@@ -7,7 +7,6 @@ from app.infrastructure.models import Cart
 from app.infrastructure.repositories.sku_repository import SKURepository
 from app.infrastructure.repositories.cart_repository import CartRepository
 
-
 class CartService:
     def __init__(self, repository: CartRepository, sku_repo: SKURepository):
         self.repository = repository

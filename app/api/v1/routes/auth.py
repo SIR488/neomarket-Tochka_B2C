@@ -6,13 +6,13 @@ from uuid import UUID
 
 from app.infrastructure.database import get_db
 from app.infrastructure.models import Customer
-from app.api.v1.schemas.customer import CustomerRead, CustomerLogin
+from app.api.v1.schemas.customer import CustomerReadShort, CustomerLogin
 from app.api.v1.dependencies.security import hash_password, set_auth_cookie, verify_password, delete_auth_cookie
 from app.api.v1.dependencies.cart_depends import merge_guest_cart
 
 router = APIRouter()
 
-@router.post("/register", response_model=CustomerRead)
+@router.post("/register", response_model=CustomerReadShort)
 async def register_customer(customer: CustomerLogin, response: Response, session: AsyncSession = Depends(get_db)):
     """Регистрация пользователя."""
     statement = select(Customer).where(Customer.name == customer.name)
@@ -32,7 +32,7 @@ async def register_customer(customer: CustomerLogin, response: Response, session
     set_auth_cookie(response, customer_id=db_customer.id)
     return db_customer
 
-@router.post("/login", response_model=CustomerRead)
+@router.post("/login", response_model=CustomerReadShort)
 async def login_customer(
     customer: CustomerLogin, 
     response: Response, 
