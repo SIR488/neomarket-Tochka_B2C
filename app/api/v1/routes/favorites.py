@@ -1,60 +1,54 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
-from app.infrastructure.database import get_db
-from app.infrastructure.models import Favorite, Product  # 👈 Добавляем Product
+from typing import Annotated
 from uuid import UUID
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.application.services.favorites_service import FavoritesService
+from app.infrastructure.database import get_db
 from app.api.v1.dependencies.customer_depends import get_current_customer
 from app.api.v1.schemas.favorite import FavoriteRead
-from sqlmodel import select
+from app.infrastructure.repositories.favorites_repository import FavoriteRepository
 
 router = APIRouter()
+
+async def _get_category_service(db: AsyncSession = Depends(get_db)) -> FavoritesService:
+    repository = FavoriteRepository(db)
+    return FavoritesService(repository)
 
 @router.put("/{product_id}", status_code=204)
 async def add_to_favorites(
     product_id: UUID,
-    session: AsyncSession = Depends(get_db),
-    customer_id: UUID = Depends(get_current_customer)
+    customer_id: UUID = Depends(get_current_customer),
+    service: FavoritesService = Depends(_get_category_service)
 ):
-    product = await session.get(Product, product_id)
-    if not product:
+    result = await service.add_to_favorites(customer_id, product_id)
+    if not  result:
         raise HTTPException(status_code=404, detail="Товар не найден")
 
-    fav = Favorite(customer_id=customer_id, product_id=product_id)
-    session.add(fav)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        
     return None
 
 @router.get("", response_model=list[FavoriteRead], status_code=200)
 async def get_favorites(
-    session: AsyncSession = Depends(get_db),
-    customer_id: UUID = Depends(get_current_customer)
+    customer_id: UUID = Depends(get_current_customer),
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    service: FavoritesService = Depends(_get_category_service)
 ):
-    result = await session.execute(
-        select(Favorite).where(Favorite.customer_id == customer_id)
-    )
-    favorites = result.scalars().all()
+    favorites = await service.get_favorites(customer_id, limit, offset)
+    if not favorites:
+        return None
+
     return favorites
 
 @router.delete("/{product_id}", status_code=204)
 async def delete_favorite(
     product_id: UUID,
-    session: AsyncSession = Depends(get_db),
-    customer_id: UUID = Depends(get_current_customer)
+    customer_id: UUID = Depends(get_current_customer),
+    service: FavoritesService = Depends(_get_category_service)
 ):
-    result = await session.execute(
-        select(Favorite).where(
-            Favorite.customer_id == customer_id,
-            Favorite.product_id == product_id
-        )
-    )
-    favorite = result.scalar_one_or_none()
-    if not favorite:
-        return
-    await session.delete(favorite)
-    await session.commit()
-    return
+    result = await service.remove_favorite(customer_id, product_id)
+
+    if not result:
+        return HTTPException(status_code=404, detail="favorite не найден")
+
+    return None
