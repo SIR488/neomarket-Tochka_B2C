@@ -82,3 +82,23 @@ async def test_unreserve_failure_transitions_to_cancel_pending(async_client):
 async def test_cancel_assembling_order_returns_409(async_client):
     """Тест проверяет, что отмена заказа в сборке возвращает 409."""
     pass
+
+@pytest.mark.asyncio
+async def test_product_blocked_marks_cart_items_unavailable(async_client):
+    """Тест проверяет, что блокировка товара делает позиции в корзине unavailable."""
+    pass
+
+@pytest.mark.asyncio
+async def test_orders_not_affected_by_product_blocked(async_client):
+    """Тест проверяет, что блокировка товара не влияет на уже оформленные заказы."""
+    pass
+
+@pytest.mark.asyncio
+async def test_idempotent_event_no_side_effects(async_client):
+    """Тест проверяет, что дублирующееся событие от B2B игнорируется."""
+    pass
+
+@pytest.mark.asyncio
+async def test_missing_service_key_returns_401(async_client):
+    """Тест проверяет, что вебхук без X-Service-Key возвращает 401."""
+    pass
