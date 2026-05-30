@@ -6,25 +6,29 @@ from uuid import UUID
 
 from app.infrastructure.database import get_db
 from app.infrastructure.models import Customer
-from app.api.v1.schemas.customer import CustomerReadShort, CustomerLogin
+from app.api.v1.schemas.customer import CustomerReadShort, CustomerLogin, CustomerRegister
 from app.api.v1.dependencies.security import hash_password, set_auth_cookie, verify_password, delete_auth_cookie
 from app.api.v1.dependencies.cart_depends import merge_guest_cart
 
 router = APIRouter()
 
 @router.post("/register", response_model=CustomerReadShort)
-async def register_customer(customer: CustomerLogin, response: Response, session: AsyncSession = Depends(get_db)):
+async def register_customer(customer: CustomerRegister, response: Response, session: AsyncSession = Depends(get_db)):
     """Регистрация пользователя."""
-    statement = select(Customer).where(Customer.name == customer.name)
+    statement = select(Customer).where(Customer.email == customer.email)
     result = await session.execute(statement)
     existing_customer = result.scalar_one_or_none()
     if existing_customer:
-        raise HTTPException(status_code=409, detail="Пользователь с таким именем уже существует")
+        raise HTTPException(status_code=409, detail="Пользователь с такой почтой уже существует")
     
     db_customer = Customer(
-        name=customer.name,
-        password_hash=hash_password(customer.password),
-    )
+        email=customer.email,
+        first_name=customer.first_name,
+        last_name=customer.last_name,
+        date_of_birth=customer.date_of_birth,
+        password_hash=hash_password(customer.password)
+        )
+    
     session.add(db_customer)
     await session.commit()
     await session.refresh(db_customer)
@@ -39,7 +43,7 @@ async def login_customer(
     session: AsyncSession = Depends(get_db),
     session_id: Optional[UUID] = Header(alias="X-Session-Id", default=None)
 ):
-    statement = select(Customer).where(Customer.name == customer.name)
+    statement = select(Customer).where(Customer.email == customer.email)
     result = await session.execute(statement)
     existing_customer = result.scalar_one_or_none()
     if not existing_customer or not verify_password(customer.password, existing_customer.password_hash):

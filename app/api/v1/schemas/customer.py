@@ -1,12 +1,19 @@
 from sqlmodel import SQLModel
 from uuid import UUID
-from pydantic import BaseModel, EmailStr, Field, HttpUrl
-from typing import Optional, Annotated, Union, Literal
-from datetime import datetime, timezone, date
+from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import datetime, date
+
+class CustomerRegister(SQLModel):
+    email: str
+    first_name: str
+    last_name: str
+    date_of_birth: date
+    password: str
 
 class CustomerReadShort(SQLModel):
     id: UUID
-    name: str
+    email: str
 
 class CustomerResponse(BaseModel):
     id: UUID
@@ -18,14 +25,11 @@ class CustomerResponse(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
-
 class CustomerUpdateRequest(BaseModel):
     first_name: Optional[str] = Field(None, min_length=1, max_length=100)
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     phone: Optional[str] = Field(None, pattern=r"^\+?[0-9\s\-\(\)]+$")
 
 class CustomerLogin(SQLModel):
-    name: str
+    email: str
     password: str

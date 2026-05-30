@@ -17,14 +17,6 @@ AsyncSessionLocal = sessionmaker(
     autoflush=False,
 )
 
-async def create_tables():
-    """Создать все таблицы при старте"""
-    from sqlmodel import SQLModel
-    from app.infrastructure.models import Product, Category, SKU, Stock, Seller, CharacteristicValue
-    
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-
 async def get_db():
     async with AsyncSessionLocal() as session:
         try:
@@ -35,7 +27,9 @@ async def get_db():
 async def create_tables():
     """Создать все таблицы при старте"""
     from sqlmodel import SQLModel
-    from app.infrastructure.models import Product, Category, SKU, Stock, Seller, CharacteristicValue
+    from app.infrastructure.models import (Product, Category, SKU, Stock, Seller, 
+                                           CharacteristicValue, Customer, Favorite, 
+                                           Cart, CartItem, Address)
     
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)

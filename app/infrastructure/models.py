@@ -13,7 +13,7 @@ class Favorite(SQLModel, table=True):
     product_id: UUID = Field(foreign_key="products.id")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
 
     __table_args__ = (UniqueConstraint('customer_id', 'product_id'),)
@@ -26,15 +26,14 @@ class Customer(SQLModel, table=True):
     last_name: str
     date_of_birth: date
     is_active: bool = Field(default=True)
-    name: str
     password_hash: str
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
 
 class Seller(SQLModel, table=True):
@@ -65,11 +64,11 @@ class Category(SQLModel, table=True):
     
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
 
     parent: Optional["Category"] = Relationship(
@@ -94,11 +93,11 @@ class Product(SQLModel, table=True):
     
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
     
     seller: Seller = Relationship(back_populates="products")
@@ -113,7 +112,7 @@ class CharacteristicValue(SQLModel, table=True):
     value: str
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
 
 class SKU(SQLModel, table=True):
@@ -129,11 +128,11 @@ class SKU(SQLModel, table=True):
     
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
 
     product: Product = Relationship(back_populates="skus")
@@ -147,7 +146,7 @@ class Stock(SQLModel, table=True):
     quantity: int = Field(default=0)
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        sa_column={"type_": DateTime(timezone=True)}
+        sa_column=Column(DateTime(timezone=True))
     )
     sku: SKU = Relationship(back_populates="stock")
 
