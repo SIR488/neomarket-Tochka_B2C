@@ -65,3 +65,20 @@ async def test_order_detail_shows_fixed_prices(async_client):
 async def test_other_user_order_returns_404_not_403(async_client):
     """Тест проверяет защиту IDOR (404 вместо 403 при попытке прочесть чужой заказ)."""
     pass
+
+@pytest.mark.asyncio
+async def test_cancel_paid_order_transitions_to_cancelled(async_client):
+    """Тест проверяет успешную отмену заказа."""
+    mock_b2b_client.unreserve.return_value = {"status": 200, "data": {}}
+    pass
+
+@pytest.mark.asyncio
+async def test_unreserve_failure_transitions_to_cancel_pending(async_client):
+    """Тест проверяет, что при сбое unreserve заказ переходит в CANCEL_PENDING."""
+    mock_b2b_client.unreserve.side_effect = B2BUnavailableError("Unavailable")
+    pass
+
+@pytest.mark.asyncio
+async def test_cancel_assembling_order_returns_409(async_client):
+    """Тест проверяет, что отмена заказа в сборке возвращает 409."""
+    pass

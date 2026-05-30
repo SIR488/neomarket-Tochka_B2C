@@ -155,3 +155,27 @@ class OrderService:
             raise HTTPException(status_code=404, detail="Заказ не найден")
             
         return order
+
+    async def cancel_order(self, user_id: UUID, order_id: UUID) -> Order:
+        order = await self.get_order_by_id(user_id, order_id)
+        
+        if order.status not in ["CREATED", "PAID"]:
+            raise HTTPException(status_code=409, detail={"code": "INVALID_STATUS", "message": "Невозможно отменить заказ в текущем статусе"})
+            
+        items_payload = [{"sku_id": str(item.sku_id), "quantity": item.quantity} for item in order.items]
+        
+        try:
+            reserve_result = await self.b2b_client.unreserve(order.id, items_payload)
+            if reserve_result["status"] == 200:
+                order.status = "CANCELLED"
+            else:
+                # Если B2B ответил ошибкой (не 200), переводим в CANCEL_PENDING для повтора
+                order.status = "CANCEL_PENDING"
+        except B2BUnavailableError:
+            # Если B2B недоступен по таймауту/503, тоже CANCEL_PENDING
+            order.status = "CANCEL_PENDING"
+            
+        self.session.add(order)
+        await self.session.commit()
+        await self.session.refresh(order)
+        return order

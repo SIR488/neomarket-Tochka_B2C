@@ -46,3 +46,14 @@ async def get_order(
     При попытке получить чужой заказ возвращает 404 (IDOR защита).
     """
     return await service.get_order_by_id(user_id=user_id, order_id=order_id)
+
+@router.post("/{order_id}/cancel", response_model=OrderResponse, summary="Отмена заказа")
+async def cancel_order(
+    order_id: UUID,
+    user_id: UUID = Depends(get_current_customer),
+    service: OrderService = Depends(get_order_service)
+):
+    """
+    Отменяет заказ.
+    """
+    return await service.cancel_order(user_id=user_id, order_id=order_id)
