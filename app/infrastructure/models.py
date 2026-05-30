@@ -168,6 +168,7 @@ class CartItem(SQLModel, table=True):
     sku_id: UUID = Field(foreign_key="skus.id")
     quantity: int = Field(default=1, nullable=False)
     unit_price_at_add: Optional[int] = Field(default=None)
+    unavailable_reason: Optional[str] = Field(default=None)
 
     cart: Cart = Relationship(back_populates="cart_items")
     sku: SKU = Relationship()
@@ -201,3 +202,38 @@ class Address(SQLModel, table=True):
     )
     
     customer: Customer = Relationship(back_populates="addresses")
+
+class Order(SQLModel, table=True):
+    __tablename__ = "orders"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    user_id: UUID = Field(foreign_key="customers.id", index=True)
+    status: str = Field(default="CREATED", index=True)
+    total_amount: int
+    delivery_address: Optional[str] = Field(default=None)
+    idempotency_key: UUID = Field(unique=True, index=True)
+    fulfill_called: bool = Field(default=False)
+    
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+    
+    items: List["OrderItem"] = Relationship(back_populates="order")
+
+class OrderItem(SQLModel, table=True):
+    __tablename__ = "order_items"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    order_id: UUID = Field(foreign_key="orders.id")
+    sku_id: UUID
+    product_id: UUID
+    product_title: str
+    sku_name: str
+    quantity: int
+    unit_price: int
+    line_total: int
+    
+    order: Order = Relationship(back_populates="items")

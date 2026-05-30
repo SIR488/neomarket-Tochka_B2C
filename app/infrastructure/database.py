@@ -29,7 +29,7 @@ async def create_tables():
     from sqlmodel import SQLModel
     from app.infrastructure.models import (Product, Category, SKU, Stock, Seller, 
                                            CharacteristicValue, Customer, Favorite, 
-                                           Cart, CartItem, Address)
+                                           Cart, CartItem, Address, Order, OrderItem)
     
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
