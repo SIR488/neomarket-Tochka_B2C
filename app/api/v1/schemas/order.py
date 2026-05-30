@@ -11,6 +11,7 @@ class OrderCreateRequest(BaseModel):
     idempotency_key: UUID
     items: List[OrderItemRequest]
     delivery_address: Optional[str] = None
+    payment_method_id: Optional[UUID] = None
 
 class OrderItemResponse(BaseModel):
     id: UUID
@@ -28,6 +29,7 @@ class OrderResponse(BaseModel):
     items: List[OrderItemResponse]
     total_amount: int
     delivery_address: Optional[str] = None
+    payment_method_id: Optional[UUID] = None
     created_at: datetime
     updated_at: datetime
 

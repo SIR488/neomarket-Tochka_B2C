@@ -210,6 +210,7 @@ class Order(SQLModel, table=True):
     status: str = Field(default="CREATED", index=True)
     total_amount: int
     delivery_address: Optional[str] = Field(default=None)
+    payment_method_id: Optional[UUID] = Field(default=None, foreign_key="payment_methods.id")
     idempotency_key: UUID = Field(unique=True, index=True)
     fulfill_called: bool = Field(default=False)
     
@@ -223,6 +224,7 @@ class Order(SQLModel, table=True):
     )
     
     items: List["OrderItem"] = Relationship(back_populates="order")
+    payment_method: Optional["PaymentMethod"] = Relationship()
 
 class OrderItem(SQLModel, table=True):
     __tablename__ = "order_items"

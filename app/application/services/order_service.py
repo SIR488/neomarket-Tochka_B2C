@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.models import Order, OrderItem, SKU, Product
+from app.infrastructure.models import Order, OrderItem, SKU, Product, PaymentMethod
 from app.api.v1.schemas.order import OrderCreateRequest, OrderItemRequest
 from app.infrastructure.b2b_client import B2BClient, B2BUnavailableError
 
@@ -60,6 +60,12 @@ class OrderService:
         if failed:
             raise HTTPException(status_code=409, detail={"code": "RESERVE_FAILED", "message": "Не удалось зарезервировать товары", "failed_items": failed})
 
+        # 2.5 Проверка payment_method_id (если передан)
+        if request.payment_method_id:
+            pm = await self.session.get(PaymentMethod, request.payment_method_id)
+            if not pm or pm.customer_id != user_id:
+                raise HTTPException(status_code=400, detail={"code": "INVALID_PAYMENT_METHOD", "message": "Способ оплаты не найден или принадлежит другому пользователю"})
+
         # 3. Резервирование в B2B
         reserve_items = [{"sku_id": item.sku_id, "quantity": item.quantity} for item in request.items]
         try:
@@ -80,6 +86,7 @@ class OrderService:
             status="PAID",
             total_amount=total_amount,
             delivery_address=request.delivery_address,
+            payment_method_id=request.payment_method_id,
             idempotency_key=request.idempotency_key
         )
         self.session.add(order)
