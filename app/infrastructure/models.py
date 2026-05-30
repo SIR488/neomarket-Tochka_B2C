@@ -35,6 +35,7 @@ class Customer(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True))
     )
+    addresses: List["Address"] = Relationship(back_populates="customer")
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"
@@ -170,3 +171,33 @@ class CartItem(SQLModel, table=True):
 
     cart: Cart = Relationship(back_populates="cart_items")
     sku: SKU = Relationship()
+
+class Address(SQLModel, table=True):
+    __tablename__ = "addresses"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id", index=True)
+    
+    country: str = Field(max_length=100)
+    region: Optional[str] = Field(default=None, max_length=200)
+    city: str = Field(max_length=200)
+    street: str = Field(max_length=200)
+    building: str = Field(max_length=50)
+    apartment: Optional[str] = Field(default=None, max_length=50)
+    postal_code: Optional[str] = Field(default=None, max_length=20)
+    
+    recipient_name: Optional[str] = Field(default=None, max_length=200)
+    recipient_phone: Optional[str] = Field(default=None, max_length=20)
+    
+    comment: Optional[str] = Field(default=None, max_length=500)
+    is_default: bool = Field(default=False)
+    
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True))
+    )
+    
+    customer: Customer = Relationship(back_populates="addresses")
