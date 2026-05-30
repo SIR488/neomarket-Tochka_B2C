@@ -5,6 +5,8 @@ from typing import Optional, List
 from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, UniqueConstraint, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
+from app.api.v1.schemas.payment import PaymentType, CardBrand
+
 
 class Favorite(SQLModel, table=True):
     __tablename__ = 'favorites'
@@ -35,7 +37,9 @@ class Customer(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True))
     )
+    
     addresses: List["Address"] = Relationship(back_populates="customer")
+    payment_methods: List["PaymentMethod"] = Relationship(back_populates="customer")
 
 class Seller(SQLModel, table=True):
     __tablename__ = "sellers"
@@ -201,3 +205,18 @@ class Address(SQLModel, table=True):
     )
     
     customer: Customer = Relationship(back_populates="addresses")
+
+class PaymentMethod(SQLModel, table=True):
+    __tablename__ = "payment_methods"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id", index=True)
+    type: PaymentType
+    card_last4: Optional[str] = Field(default=None, max_length=4)
+    card_brand: Optional[CardBrand] = Field(default=None)
+    is_default: bool = Field(default=False)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+    
+    customer: "Customer" = Relationship(back_populates="payment_methods")
