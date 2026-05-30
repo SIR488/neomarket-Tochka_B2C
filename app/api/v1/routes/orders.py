@@ -57,3 +57,20 @@ async def cancel_order(
     Отменяет заказ.
     """
     return await service.cancel_order(user_id=user_id, order_id=order_id)
+
+from pydantic import BaseModel
+
+class OrderStatusUpdate(BaseModel):
+    status: str
+
+@router.post("/{order_id}/status", response_model=OrderResponse, summary="Смена статуса заказа (служебный)")
+async def update_order_status(
+    order_id: UUID,
+    payload: OrderStatusUpdate,
+    service: OrderService = Depends(get_order_service)
+):
+    """
+    Служебный эндпоинт для смены статуса заказа.
+    При переводе в статус DELIVERED отправляет запрос fulfill в B2B.
+    """
+    return await service.update_order_status(order_id=order_id, new_status=payload.status)

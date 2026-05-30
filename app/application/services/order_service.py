@@ -179,3 +179,30 @@ class OrderService:
         await self.session.commit()
         await self.session.refresh(order)
         return order
+
+    async def update_order_status(self, order_id: UUID, new_status: str) -> Order:
+        query = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+        result = await self.session.execute(query)
+        order = result.scalars().first()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+        old_status = order.status
+        order.status = new_status
+        
+        if new_status == "DELIVERED" and old_status != "DELIVERED":
+            items_payload = [{"sku_id": str(item.sku_id), "quantity": item.quantity} for item in order.items]
+            try:
+                fulfill_result = await self.b2b_client.fulfill(order.id, items_payload)
+                if fulfill_result["status"] == 200:
+                    order.fulfill_called = True
+                else:
+                    order.fulfill_called = False
+            except B2BUnavailableError:
+                order.fulfill_called = False
+                
+        self.session.add(order)
+        await self.session.commit()
+        await self.session.refresh(order)
+        return order

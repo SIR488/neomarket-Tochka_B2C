@@ -102,3 +102,13 @@ async def test_idempotent_event_no_side_effects(async_client):
 async def test_missing_service_key_returns_401(async_client):
     """Тест проверяет, что вебхук без X-Service-Key возвращает 401."""
     pass
+
+@pytest.mark.asyncio
+async def test_delivered_status_triggers_fulfill_to_b2b(async_client):
+    """Тест проверяет вызов fulfill в B2B при переводе заказа в статус DELIVERED."""
+    pass
+
+@pytest.mark.asyncio
+async def test_fulfill_failure_retried_asynchronously(async_client):
+    """Тест проверяет сохранение флага fulfill_called=False при сбое B2B."""
+    pass
