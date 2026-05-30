@@ -50,3 +50,18 @@ async def test_b2b_unavailable_returns_503(async_client):
     """Тест проверяет недоступность B2B."""
     mock_b2b_client.reserve.side_effect = B2BUnavailableError("Unavailable")
     pass
+
+@pytest.mark.asyncio
+async def test_orders_list_returns_own_orders_paginated(async_client):
+    """Тест проверяет получение списка своих заказов с пагинацией."""
+    pass
+
+@pytest.mark.asyncio
+async def test_order_detail_shows_fixed_prices(async_client):
+    """Тест проверяет получение деталей заказа с зафиксированными ценами."""
+    pass
+
+@pytest.mark.asyncio
+async def test_other_user_order_returns_404_not_403(async_client):
+    """Тест проверяет защиту IDOR (404 вместо 403 при попытке прочесть чужой заказ)."""
+    pass

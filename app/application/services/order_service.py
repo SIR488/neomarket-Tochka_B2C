@@ -105,3 +105,53 @@ class OrderService:
         # Load items for response
         await self.session.execute(select(Order).options(selectinload(Order.items)).where(Order.id == order.id))
         return order
+
+    async def get_orders(self, user_id: UUID, limit: int = 10, offset: int = 0) -> dict:
+        from sqlalchemy import func
+        
+        # Получаем общее количество заказов пользователя
+        count_query = select(func.count()).select_from(Order).where(Order.user_id == user_id)
+        total_count = await self.session.scalar(count_query)
+        
+        # Получаем заказы с пагинацией и сортировкой от новых к старым
+        query = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await self.session.execute(query)
+        orders = result.scalars().all()
+        
+        return {
+            "items": [
+                {
+                    "id": o.id,
+                    "status": o.status,
+                    "total_amount": o.total_amount,
+                    "items_count": sum(i.quantity for i in o.items),
+                    "created_at": o.created_at,
+                    "updated_at": o.updated_at
+                }
+                for o in orders
+            ],
+            "total_count": total_count or 0,
+            "limit": limit,
+            "offset": offset
+        }
+
+    async def get_order_by_id(self, user_id: UUID, order_id: UUID) -> Order:
+        query = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+        result = await self.session.execute(query)
+        order = result.scalars().first()
+        
+        if not order:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+        if order.user_id != user_id:
+            # Защита от IDOR: возвращаем 404 вместо 403, чтобы не раскрывать существование заказа
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+        return order

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from app.api.v1.schemas.order import OrderCreateRequest, OrderResponse
+from app.api.v1.schemas.order import OrderCreateRequest, OrderResponse, PaginatedOrdersResponse
 from app.application.services.order_service import OrderService
 from app.infrastructure.database import get_db
 from app.api.v1.dependencies.customer_depends import get_current_customer
@@ -22,3 +22,27 @@ async def create_order(
 ):
     order = await service.create_order(user_id, request)
     return order
+
+@router.get("", response_model=PaginatedOrdersResponse, summary="Получение списка заказов")
+async def get_orders(
+    limit: int = 10,
+    offset: int = 0,
+    user_id: UUID = Depends(get_current_customer),
+    service: OrderService = Depends(get_order_service)
+):
+    """
+    Возвращает список заказов текущего покупателя с пагинацией.
+    """
+    return await service.get_orders(user_id=user_id, limit=limit, offset=offset)
+
+@router.get("/{order_id}", response_model=OrderResponse, summary="Получение информации о заказе")
+async def get_order(
+    order_id: UUID,
+    user_id: UUID = Depends(get_current_customer),
+    service: OrderService = Depends(get_order_service)
+):
+    """
+    Возвращает детали заказа.
+    При попытке получить чужой заказ возвращает 404 (IDOR защита).
+    """
+    return await service.get_order_by_id(user_id=user_id, order_id=order_id)
