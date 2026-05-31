@@ -6,15 +6,25 @@ from uuid import UUID
 
 from app.infrastructure.database import get_db
 from app.infrastructure.models import Customer
-from app.api.v1.schemas.customer import CustomerReadShort, CustomerLogin, CustomerRegister
-from app.api.v1.dependencies.security import hash_password, set_auth_cookie, verify_password, delete_auth_cookie
+from app.api.v1.schemas.customer import (CustomerRegister, CustomerLogin, 
+                                         TokenResponse, RefreshRequest)
+from app.api.v1.dependencies.security import (
+    hash_password,
+    verify_password,
+    create_auth_tokens,
+    decode_token
+)
 from app.api.v1.dependencies.cart_depends import merge_guest_cart
 
 router = APIRouter()
 
-@router.post("/register", response_model=CustomerReadShort)
-async def register_customer(customer: CustomerRegister, response: Response, session: AsyncSession = Depends(get_db)):
-    """Регистрация пользователя."""
+
+@router.post("/register", response_model=TokenResponse, status_code=201)
+async def register_customer(
+    customer: CustomerRegister,
+    session: AsyncSession = Depends(get_db)
+):
+    """Регистрация покупателя. Возвращает пару токенов (access + refresh)."""
     statement = select(Customer).where(Customer.email == customer.email)
     result = await session.execute(statement)
     existing_customer = result.scalar_one_or_none()
@@ -27,38 +37,62 @@ async def register_customer(customer: CustomerRegister, response: Response, sess
         last_name=customer.last_name,
         date_of_birth=customer.date_of_birth,
         password_hash=hash_password(customer.password)
-        )
+    )
     
     session.add(db_customer)
     await session.commit()
     await session.refresh(db_customer)
+    
+    tokens = create_auth_tokens(db_customer.id)
+    return tokens
 
-    set_auth_cookie(response, customer_id=db_customer.id)
-    return db_customer
 
-@router.post("/login", response_model=CustomerReadShort)
+@router.post("/login", response_model=TokenResponse)
 async def login_customer(
-    customer: CustomerLogin, 
-    response: Response, 
+    customer: CustomerLogin,
+    response: Response,
     session: AsyncSession = Depends(get_db),
     session_id: Optional[UUID] = Header(alias="X-Session-Id", default=None)
 ):
+    """Вход покупателя. Возвращает пару токенов (access + refresh)."""
     statement = select(Customer).where(Customer.email == customer.email)
     result = await session.execute(statement)
     existing_customer = result.scalar_one_or_none()
+    
     if not existing_customer or not verify_password(customer.password, existing_customer.password_hash):
-        raise HTTPException(status_code=401, detail="Неверное имя или пароль")
-
+        raise HTTPException(status_code=401, detail="Неверный email или пароль")
+    
     if session_id:
         await merge_guest_cart(existing_customer.id, session_id)
-
+    
     await session.commit()
     
-    set_auth_cookie(response, customer_id=existing_customer.id)
-    return existing_customer
+    tokens = create_auth_tokens(existing_customer.id)
+    return tokens
+
+
+@router.post("/refresh", response_model=TokenResponse)
+async def refresh_token(
+    refresh_data: RefreshRequest,
+    session: AsyncSession = Depends(get_db)
+):
+    """Обновление access-токена по refresh-токену."""
+    customer_id = decode_token(refresh_data.refresh_token, expected_type="refresh")
+    if customer_id is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+    
+    customer = await session.get(Customer, customer_id)
+    if not customer or not customer.is_active:
+        raise HTTPException(status_code=401, detail="User not found or inactive")
+    
+    return create_auth_tokens(customer_id)
+
 
 @router.post("/logout", status_code=204)
-def logout_customer(response: Response):
-    """Выход из аккаунта."""
-    delete_auth_cookie(response)
+async def logout_customer(response: Response):
+    """
+    Выход из аккаунта.
+    Удаляет httpOnly cookie (если используется).
+    Refresh-токен остаётся валидным до истечения срока (stateless JWT).
+    """
     return

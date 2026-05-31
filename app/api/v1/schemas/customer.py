@@ -33,3 +33,17 @@ class CustomerUpdateRequest(BaseModel):
 class CustomerLogin(SQLModel):
     email: str
     password: str
+
+
+class TokenResponse(BaseModel):
+    user_id: UUID
+    access_token: str
+    refresh_token: str
+    token_type: str = "Bearer"
+    expires_in: int
+
+    class Config:
+        from_attributes = True
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
