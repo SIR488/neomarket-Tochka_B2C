@@ -25,7 +25,8 @@ async def clear_cart(
         cart_id: UUID = Depends(resolve_cart),
         service: CartService = Depends(get_cart_service)
 ):
-    return await service.clear_cart(cart_id)
+    await service.clear_cart(cart_id)
+    return None
 
 @router.post("/items", response_model=CartResponse, status_code=200, summary="Добавить SKU в корзину")
 async def add_cart_item(
@@ -39,11 +40,11 @@ async def add_cart_item(
         raise HTTPException(status_code=409, detail=msg)
 
     if issue_type in (CartValidationIssueType.OUT_OF_STOCK, CartValidationIssueType.QUANTITY_REDUCED):
-        raise HTTPException(status_code=404, detail=msg or "SKU не найден")
+        raise HTTPException(status_code=409, detail=msg or "SKU не найден")
 
     cart_response = await service.add_item(cart_id, sku.id, body.quantity, sku.price)
 
-    if cart_response in None:
+    if cart_response is None:
         raise HTTPException(status_code=400)
 
     return cart_response
@@ -61,8 +62,10 @@ async def update_cart_item(
         raise HTTPException(status_code=400, detail="quantity должно быть >= 1")
 
     sku, _, issue_type, msg = await service.check_sku(sku_id, quantity)
-    if not sku or issue_type:
-        raise HTTPException(status_code=409 if issue_type else 404, detail=msg or "SKU не найден")
+    if not sku:
+        raise HTTPException(status_code=404, detail="SKU не найден")
+    if issue_type in (CartValidationIssueType.OUT_OF_STOCK, CartValidationIssueType.QUANTITY_REDUCED):
+        raise HTTPException(status_code=409, detail=msg)
 
     cart_response = await service.update_item(cart_id, sku.id, quantity)
     if not cart_response:

@@ -12,9 +12,9 @@ class CartRepository:
         self.session = session
 
     async def resolve_cart(
-            self,
-            customer_id: Optional[UUID] = None,
-            session_id: Optional[UUID] = None,
+        self,
+        customer_id: Optional[UUID] = None,
+        session_id: Optional[UUID] = None,
     ) -> Cart:
         query = (
             select(Cart)
@@ -25,21 +25,23 @@ class CartRepository:
                 )
             )
         )
-
         result = await self.session.execute(query)
         cart = result.scalar_one_or_none()
 
         if not cart:
             cart = Cart(customer_id=customer_id, session_id=session_id)
             self.session.add(cart)
+            await self.session.commit()
+            await self.session.refresh(cart)
 
         return cart
 
 
     async def get_by_id(self, cart_id: UUID) -> Optional[Cart]:
-        query = select(Cart).where(Cart.id == cart_id)
+        query = (select(Cart)
+                    .where(Cart.id == cart_id)
+                    .options(selectinload(Cart.cart_items).selectinload(CartItem.sku).selectinload(SKU.stock)))
         result = await self.session.execute(query)
-
         return result.scalar_one_or_none()
 
     async def get_cart_with_items(self, cart_id: UUID) -> Optional[Cart]:
@@ -93,9 +95,11 @@ class CartRepository:
         else:
             return None
 
-    async def clear_cart(self, cart_id: UUID):
+    async def clear_cart(self, cart_id: UUID) -> None:
+        """Очистить корзину (удалить все CartItem)"""
         query = delete(CartItem).where(CartItem.cart_id == cart_id)
         await self.session.execute(query)
+        await self.session.commit()
 
     async def get_user_cart(self, customer_id: UUID) -> Optional[Cart]:
         """Получить корзину пользователя"""

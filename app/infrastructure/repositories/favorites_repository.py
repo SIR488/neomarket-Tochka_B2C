@@ -19,23 +19,21 @@ class FavoriteRepository:
         self.session.add(fav)
         try:
             await self.session.commit()
+            await self.session.refresh(fav)
         except IntegrityError:
             await self.session.rollback()
+            return None
 
         return fav.id
 
-    async def get_favorites(self, customer_id: UUID, limit:int = 10, offset: int = 0) -> Optional[List[Favorite]]:
+    async def get_favorites(self, customer_id: UUID, limit: int = 10, offset: int = 0) -> List[Favorite]:
         query = select(Favorite).where(Favorite.customer_id == customer_id).limit(limit).offset(offset)
         result = await self.session.execute(query)
         favorites = result.scalars().all()
-
-        if not favorites:
-            return None
-
         return list(favorites)
 
     async def delete_favorite(self, customer_id: UUID, product_id: UUID) -> Optional[UUID]:
-        query = select(Favorite).where(Favorite.customer_id == customer_id,Favorite.product_id == product_id)
+        query = select(Favorite).where(Favorite.customer_id == customer_id, Favorite.product_id == product_id)
         result = await self.session.execute(query)
 
         favorite = result.scalar_one_or_none()

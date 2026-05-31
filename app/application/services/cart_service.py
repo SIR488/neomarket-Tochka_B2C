@@ -79,22 +79,13 @@ class CartService:
         cart = await self.repository.resolve_cart(customer_id, session_id)
         return cart.id
 
-    async def get_cart(
-            self,
-            cart_id: UUID
-    ) -> Optional[CartResponse]:
+    async def get_cart(self, cart_id: UUID) -> CartResponse:
         cart = await self.repository.get_by_id(cart_id)
-
-        if cart is None:
-            return None
-
         return await self._build_response(cart)
 
-    async def clear_cart(
-            self,
-            cart_id: UUID,
-    ) -> Optional[CartResponse]:
-        return await self.repository.clear_cart(cart_id)
+    async def clear_cart(self, cart_id: UUID) -> None:
+        """Очистить корзину"""
+        await self.repository.clear_cart(cart_id)
 
     async def add_item(self, cart_id: UUID, sku_id: UUID, quantity: int, price: int) -> Optional[CartResponse]:
 
