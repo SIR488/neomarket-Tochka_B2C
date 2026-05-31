@@ -4,7 +4,8 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from app.infrastructure.models import Favorite, Product
+from app.infrastructure.models import Favorite, Product, ProductSubscription
+from app.api.v1.schemas.favorite import SubscriptionEventType
 
 class FavoriteRepository:
     def __init__(self, session: AsyncSession):
@@ -44,3 +45,51 @@ class FavoriteRepository:
         await self.session.commit()
 
         return favorite.id
+
+    async def add_subscription(self, customer_id: UUID, product_id: UUID, event_type: SubscriptionEventType) -> bool:
+        """Добавить подписку на событие"""
+        subscription = ProductSubscription(
+            customer_id=customer_id,
+            product_id=product_id,
+            event_type=event_type
+        )
+        self.session.add(subscription)
+        try:
+            await self.session.commit()
+            return True
+        except IntegrityError:
+            await self.session.rollback()
+            return False
+
+    async def remove_subscription(self, customer_id: UUID, product_id: UUID, event_type: SubscriptionEventType = None) -> int:
+        """Удалить подписки"""
+        query = select(ProductSubscription).where(
+            ProductSubscription.customer_id == customer_id,
+            ProductSubscription.product_id == product_id
+        )
+        if event_type:
+            query = query.where(ProductSubscription.event_type == event_type)
+        
+        result = await self.session.execute(query)
+        subscriptions = result.scalars().all()
+        
+        for sub in subscriptions:
+            await self.session.delete(sub)
+        
+        await self.session.commit()
+        return len(subscriptions)
+
+    async def get_subscriptions_by_product(self, product_id: UUID, event_type: SubscriptionEventType = None) -> List[ProductSubscription]:
+        """Получить всех подписчиков на товар"""
+        query = select(ProductSubscription).where(
+            ProductSubscription.product_id == product_id
+        )
+        if event_type:
+            query = query.where(ProductSubscription.event_type == event_type)
+        
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def get_product(self, product_id: UUID) -> Optional[Product]:
+        """Проверить существование товара"""
+        return await self.session.get(Product, product_id)

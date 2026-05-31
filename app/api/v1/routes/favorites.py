@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.services.favorites_service import FavoritesService
 from app.infrastructure.database import get_db
 from app.api.v1.dependencies.customer_depends import get_current_customer
-from app.api.v1.schemas.favorite import FavoriteRead
+from app.api.v1.schemas.favorite import FavoriteRead, SubscribeRequest, SubscriptionEventType
 from app.infrastructure.repositories.favorites_repository import FavoriteRepository
 
 router = APIRouter()
@@ -45,4 +45,23 @@ async def delete_favorite(
     result = await service.remove_favorite(customer_id, product_id)
     if not result:
         raise HTTPException(status_code=404, detail="Избранное не найдено")
+    return None
+
+@router.post("/{product_id}/subscribe", status_code=204)
+async def subscribe_to_product(
+    product_id: UUID,
+    request: SubscribeRequest,
+    customer_id: UUID = Depends(get_current_customer),
+    service: FavoritesService = Depends(_get_favorites_service)
+):
+    await service.subscribe_to_product(customer_id, product_id, request.events)
+    return None
+
+@router.delete("/{product_id}/subscribe", status_code=204)
+async def unsubscribe_from_product(
+    product_id: UUID,
+    customer_id: UUID = Depends(get_current_customer),
+    service: FavoritesService = Depends(_get_favorites_service)
+):
+    await service.unsubscribe_from_product(customer_id, product_id)
     return None

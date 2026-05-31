@@ -6,6 +6,7 @@ from sqlmodel import Field, SQLModel, Relationship
 from sqlalchemy import Column, UniqueConstraint, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from app.api.v1.schemas.payment import PaymentType, CardBrand
+from app.api.v1.schemas.favorite import SubscriptionEventType
 
 
 class Favorite(SQLModel, table=True):
@@ -220,3 +221,16 @@ class PaymentMethod(SQLModel, table=True):
     )
     
     customer: "Customer" = Relationship(back_populates="payment_methods")
+
+class ProductSubscription(SQLModel, table=True):
+    __tablename__ = "product_subscriptions"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id", index=True)
+    product_id: UUID
+    event_type: SubscriptionEventType
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+    
+    __table_args__ = (UniqueConstraint('customer_id', 'product_id', 'event_type'),)
