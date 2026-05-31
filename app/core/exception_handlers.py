@@ -32,25 +32,41 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 async def http_exception_handler(request: Request, exc: HTTPException):
     status_code = exc.status_code
-    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
-
-    if status_code == 401:
-        error = UnauthorizedErrorResponse(message=detail or "Необходимо авторизоваться")
-    elif status_code == 403:
-        error = ForbiddenErrorResponse(message=detail or "Доступ запрещён")
-    elif status_code == 404:
-        error = NotFoundErrorResponse(message=detail or "Ресурс не найден")
-    elif status_code == 409:
-        error = ConflictErrorResponse(message=detail or "Конфликт данных")
-    elif status_code == 400:
-        error = Error(code="BAD_REQUEST", message=detail or "Некорректный запрос")
+    
+    if isinstance(exc.detail, dict):
+        code = exc.detail.get("code", "HTTP_ERROR")
+        message = exc.detail.get("message", "Произошла ошибка")
+        
+        extras = {k: v for k, v in exc.detail.items() if k not in ("code", "message")}
+        
+        error = Error(code=code, message=message)
+        if extras:
+            error.details = extras
+            
+        return JSONResponse(
+            status_code=status_code,
+            content=error.model_dump(exclude_none=True)
+        )
     else:
-        error = Error(code="HTTP_ERROR", message=detail)
+        detail = str(exc.detail)
 
-    return JSONResponse(
-        status_code=status_code,
-        content=error.model_dump()
-    )
+        if status_code == 401:
+            error = UnauthorizedErrorResponse(message=detail or "Необходимо авторизоваться")
+        elif status_code == 403:
+            error = ForbiddenErrorResponse(message=detail or "Доступ запрещён")
+        elif status_code == 404:
+            error = NotFoundErrorResponse(message=detail or "Ресурс не найден")
+        elif status_code == 409:
+            error = ConflictErrorResponse(message=detail or "Конфликт данных")
+        elif status_code == 400:
+            error = Error(code="BAD_REQUEST", message=detail or "Некорректный запрос")
+        else:
+            error = Error(code="HTTP_ERROR", message=detail)
+
+        return JSONResponse(
+            status_code=status_code,
+            content=error.model_dump(exclude_none=True)
+        )
 
 async def not_found_handler(request: Request, exc: NoResultFound):
     error = NotFoundErrorResponse(message="Ресурс не найден")

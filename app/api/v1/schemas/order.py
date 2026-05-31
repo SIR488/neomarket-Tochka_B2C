@@ -1,17 +1,17 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
+
+from app.api.v1.schemas.address import AddressResponse
 
 class OrderItemRequest(BaseModel):
     sku_id: UUID
     quantity: int = Field(ge=1)
 
 class OrderCreateRequest(BaseModel):
-    idempotency_key: UUID
-    items: List[OrderItemRequest]
-    delivery_address: Optional[str] = None
-    payment_method_id: Optional[UUID] = None
+    address_id: UUID
+    payment_method_id: UUID
 
 class OrderItemResponse(BaseModel):
     id: UUID
@@ -27,22 +27,16 @@ class OrderResponse(BaseModel):
     id: UUID
     status: str
     items: List[OrderItemResponse]
-    total_amount: int
-    delivery_address: Optional[str] = None
+    subtotal: int = Field(validation_alias=AliasChoices("subtotal", "total_amount"))
+    total: int = Field(validation_alias=AliasChoices("total", "total_amount"))
+    address: Optional[AddressResponse] = None
     payment_method_id: Optional[UUID] = None
-    created_at: datetime
-    updated_at: datetime
-
-class OrderShortResponse(BaseModel):
-    id: UUID
-    status: str
-    total_amount: int
-    items_count: int
+    buyer_id: UUID = Field(validation_alias=AliasChoices("buyer_id", "user_id"))
     created_at: datetime
     updated_at: datetime
 
 class PaginatedOrdersResponse(BaseModel):
-    items: List[OrderShortResponse]
+    items: List[OrderResponse]
     total_count: int
     limit: int
     offset: int

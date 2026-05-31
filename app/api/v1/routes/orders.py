@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
+from typing import Optional
 
 from app.api.v1.schemas.order import OrderCreateRequest, OrderResponse, PaginatedOrdersResponse
 from app.application.services.order_service import OrderService
@@ -17,15 +18,17 @@ async def get_order_service(db: AsyncSession = Depends(get_db)) -> OrderService:
 @router.post("", response_model=OrderResponse, status_code=201, summary="Создание заказа (checkout)")
 async def create_order(
     request: OrderCreateRequest,
+    idempotency_key: UUID = Header(alias="Idempotency-Key"),
     user_id: UUID = Depends(get_current_customer),
     service: OrderService = Depends(get_order_service)
 ):
-    order = await service.create_order(user_id, request)
+    order = await service.create_order(user_id, request, idempotency_key)
     return order
 
 @router.get("", response_model=PaginatedOrdersResponse, summary="Получение списка заказов")
 async def get_orders(
-    limit: int = 10,
+    status: Optional[str] = Query(None, description="Фильтр по статусу"),
+    limit: int = 20,
     offset: int = 0,
     user_id: UUID = Depends(get_current_customer),
     service: OrderService = Depends(get_order_service)
@@ -33,7 +36,7 @@ async def get_orders(
     """
     Возвращает список заказов текущего покупателя с пагинацией.
     """
-    return await service.get_orders(user_id=user_id, limit=limit, offset=offset)
+    return await service.get_orders(user_id=user_id, limit=limit, offset=offset, status=status)
 
 @router.get("/{order_id}", response_model=OrderResponse, summary="Получение информации о заказе")
 async def get_order(
@@ -67,10 +70,11 @@ class OrderStatusUpdate(BaseModel):
 async def update_order_status(
     order_id: UUID,
     payload: OrderStatusUpdate,
+    user_id: UUID = Depends(get_current_customer),
     service: OrderService = Depends(get_order_service)
 ):
     """
     Служебный эндпоинт для смены статуса заказа.
     При переводе в статус DELIVERED отправляет запрос fulfill в B2B.
     """
-    return await service.update_order_status(order_id=order_id, new_status=payload.status)
+    return await service.update_order_status(user_id=user_id, order_id=order_id, new_status=payload.status)

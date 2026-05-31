@@ -2,10 +2,10 @@ from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.models import Order, OrderItem, SKU, Product, PaymentMethod
+from app.infrastructure.models import Order, OrderItem, SKU, Product, PaymentMethod, Cart, CartItem, Address
 from app.api.v1.schemas.order import OrderCreateRequest, OrderItemRequest
 from app.infrastructure.b2b_client import B2BClient, B2BUnavailableError
 
@@ -14,31 +14,32 @@ class OrderService:
         self.session = session
         self.b2b_client = b2b_client
 
-    async def create_order(self, user_id: UUID, request: OrderCreateRequest) -> Order:
+    async def create_order(self, user_id: UUID, request: OrderCreateRequest, idempotency_key: UUID) -> Order:
         # 0. Idempotency check
         existing = await self.session.execute(
-            select(Order).options(selectinload(Order.items)).where(Order.idempotency_key == request.idempotency_key)
+            select(Order).options(selectinload(Order.items), selectinload(Order.address)).where(Order.idempotency_key == idempotency_key)
         )
         existing_order = existing.scalars().first()
         if existing_order:
             return existing_order
 
-        # 1. Валидация items
-        if not request.items:
-            raise HTTPException(status_code=400, detail={"code": "INVALID_REQUEST", "message": "Список items не может быть пустым"})
-        for item in request.items:
-            if item.quantity < 1:
-                raise HTTPException(status_code=422, detail={"code": "INVALID_QUANTITY", "message": "Количество должно быть не менее 1 для каждой позиции"})
+        # 1. Fetch cart and cart_items
+        cart_query = select(Cart).options(
+            selectinload(Cart.cart_items).selectinload(CartItem.sku).selectinload(SKU.product),
+            selectinload(Cart.cart_items).selectinload(CartItem.sku).selectinload(SKU.stock)
+        ).where(Cart.customer_id == user_id)
+        cart_result = await self.session.execute(cart_query)
+        cart = cart_result.scalars().first()
+
+        if not cart or not cart.cart_items:
+            raise HTTPException(status_code=400, detail={"code": "EMPTY_CART", "message": "Корзина пуста"})
+
+        request_items = cart.cart_items
 
         # 2. Проверка наличия
-        sku_ids = [item.sku_id for item in request.items]
-        query = select(SKU).options(selectinload(SKU.product), selectinload(SKU.stock)).where(SKU.id.in_(sku_ids))
-        result = await self.session.execute(query)
-        skus = {s.id: s for s in result.scalars().all()}
-
         failed = []
-        for item in request.items:
-            sku = skus.get(item.sku_id)
+        for item in request_items:
+            sku = item.sku
             if not sku:
                 failed.append({"sku_id": str(item.sku_id), "reason": "SKU_NOT_FOUND"})
                 continue
@@ -60,16 +61,20 @@ class OrderService:
         if failed:
             raise HTTPException(status_code=409, detail={"code": "RESERVE_FAILED", "message": "Не удалось зарезервировать товары", "failed_items": failed})
 
-        # 2.5 Проверка payment_method_id (если передан)
+        # 2.5 Проверка payment_method_id и address_id
         if request.payment_method_id:
             pm = await self.session.get(PaymentMethod, request.payment_method_id)
             if not pm or pm.customer_id != user_id:
                 raise HTTPException(status_code=400, detail={"code": "INVALID_PAYMENT_METHOD", "message": "Способ оплаты не найден или принадлежит другому пользователю"})
+                
+        address = await self.session.get(Address, request.address_id)
+        if not address or address.customer_id != user_id:
+            raise HTTPException(status_code=400, detail={"code": "INVALID_ADDRESS", "message": "Адрес доставки не найден или принадлежит другому пользователю"})
 
         # 3. Резервирование в B2B
-        reserve_items = [{"sku_id": item.sku_id, "quantity": item.quantity} for item in request.items]
+        reserve_items = [{"sku_id": item.sku_id, "quantity": item.quantity} for item in request_items]
         try:
-            reserve_result = await self.b2b_client.reserve(request.idempotency_key, reserve_items)
+            reserve_result = await self.b2b_client.reserve(idempotency_key, reserve_items)
         except B2BUnavailableError as e:
             raise HTTPException(status_code=503, detail={"code": "B2B_UNAVAILABLE", "message": str(e)})
 
@@ -79,21 +84,21 @@ class OrderService:
             raise HTTPException(status_code=409, detail={"code": "RESERVE_FAILED", "message": "Не удалось зарезервировать товары", "failed_items": failed_items})
 
         # 4. Создание заказа
-        total_amount = sum(skus[item.sku_id].price * item.quantity for item in request.items)
+        total_amount = sum(item.sku.price * item.quantity for item in request_items)
         
         order = Order(
             user_id=user_id,
             status="PAID",
             total_amount=total_amount,
-            delivery_address=request.delivery_address,
+            address_id=request.address_id,
             payment_method_id=request.payment_method_id,
-            idempotency_key=request.idempotency_key
+            idempotency_key=idempotency_key
         )
         self.session.add(order)
         await self.session.flush()
 
-        for item in request.items:
-            sku = skus[item.sku_id]
+        for item in request_items:
+            sku = item.sku
             order_item = OrderItem(
                 order_id=order.id,
                 sku_id=item.sku_id,
@@ -105,52 +110,46 @@ class OrderService:
                 line_total=sku.price * item.quantity
             )
             self.session.add(order_item)
+            
+        # Очищаем корзину
+        await self.session.execute(delete(CartItem).where(CartItem.cart_id == cart.id))
         
         await self.session.commit()
         await self.session.refresh(order)
         
-        # Load items for response
-        await self.session.execute(select(Order).options(selectinload(Order.items)).where(Order.id == order.id))
+        # Load items and address for response
+        await self.session.execute(select(Order).options(selectinload(Order.items), selectinload(Order.address)).where(Order.id == order.id))
         return order
 
-    async def get_orders(self, user_id: UUID, limit: int = 10, offset: int = 0) -> dict:
+    async def get_orders(self, user_id: UUID, limit: int = 20, offset: int = 0, status: Optional[str] = None) -> dict:
         from sqlalchemy import func
         
-        # Получаем общее количество заказов пользователя
         count_query = select(func.count()).select_from(Order).where(Order.user_id == user_id)
+        if status:
+            count_query = count_query.where(Order.status == status)
         total_count = await self.session.scalar(count_query)
         
-        # Получаем заказы с пагинацией и сортировкой от новых к старым
         query = (
             select(Order)
-            .options(selectinload(Order.items))
+            .options(selectinload(Order.items), selectinload(Order.address))
             .where(Order.user_id == user_id)
-            .order_by(Order.created_at.desc())
-            .offset(offset)
-            .limit(limit)
         )
+        if status:
+            query = query.where(Order.status == status)
+            
+        query = query.order_by(Order.created_at.desc()).offset(offset).limit(limit)
         result = await self.session.execute(query)
         orders = result.scalars().all()
         
         return {
-            "items": [
-                {
-                    "id": o.id,
-                    "status": o.status,
-                    "total_amount": o.total_amount,
-                    "items_count": sum(i.quantity for i in o.items),
-                    "created_at": o.created_at,
-                    "updated_at": o.updated_at
-                }
-                for o in orders
-            ],
+            "items": orders,
             "total_count": total_count or 0,
             "limit": limit,
             "offset": offset
         }
 
     async def get_order_by_id(self, user_id: UUID, order_id: UUID) -> Order:
-        query = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+        query = select(Order).options(selectinload(Order.items), selectinload(Order.address)).where(Order.id == order_id)
         result = await self.session.execute(query)
         order = result.scalars().first()
         
@@ -158,7 +157,6 @@ class OrderService:
             raise HTTPException(status_code=404, detail="Заказ не найден")
             
         if order.user_id != user_id:
-            # Защита от IDOR: возвращаем 404 вместо 403, чтобы не раскрывать существование заказа
             raise HTTPException(status_code=404, detail="Заказ не найден")
             
         return order
@@ -187,13 +185,25 @@ class OrderService:
         await self.session.refresh(order)
         return order
 
-    async def update_order_status(self, order_id: UUID, new_status: str) -> Order:
-        query = select(Order).options(selectinload(Order.items)).where(Order.id == order_id)
+    async def update_order_status(self, user_id: UUID, order_id: UUID, new_status: str) -> Order:
+        query = select(Order).options(selectinload(Order.items), selectinload(Order.address)).where(Order.id == order_id)
         result = await self.session.execute(query)
         order = result.scalars().first()
         
         if not order:
             raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+        if order.user_id != user_id:
+            raise HTTPException(status_code=404, detail="Заказ не найден")
+            
+        valid_transitions = {
+            "CREATED": ["PAID", "CANCELLED"],
+            "PAID": ["SHIPPED", "DELIVERED", "CANCEL_PENDING", "CANCELLED"],
+            "SHIPPED": ["DELIVERED", "CANCEL_PENDING", "CANCELLED"],
+        }
+        
+        if new_status not in valid_transitions.get(order.status, []):
+             raise HTTPException(status_code=409, detail={"code": "INVALID_TRANSITION", "message": f"Недопустимый переход из {order.status} в {new_status}"})
             
         old_status = order.status
         order.status = new_status

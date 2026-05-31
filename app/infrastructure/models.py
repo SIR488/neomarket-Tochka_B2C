@@ -203,13 +203,21 @@ class Address(SQLModel, table=True):
     
     customer: Customer = Relationship(back_populates="addresses")
 
+class PaymentMethod(SQLModel, table=True):
+    __tablename__ = "payment_methods"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    customer_id: UUID = Field(foreign_key="customers.id", index=True)
+    provider: str = Field(default="card")
+    card_mask: str = Field(default="****")
+    is_active: bool = Field(default=True)
+
 class Order(SQLModel, table=True):
     __tablename__ = "orders"
     id: UUID = Field(default_factory=uuid7, primary_key=True)
     user_id: UUID = Field(foreign_key="customers.id", index=True)
     status: str = Field(default="CREATED", index=True)
     total_amount: int
-    delivery_address: Optional[str] = Field(default=None)
+    address_id: Optional[UUID] = Field(default=None, foreign_key="addresses.id")
     payment_method_id: Optional[UUID] = Field(default=None, foreign_key="payment_methods.id")
     idempotency_key: UUID = Field(unique=True, index=True)
     fulfill_called: bool = Field(default=False)
@@ -225,6 +233,7 @@ class Order(SQLModel, table=True):
     
     items: List["OrderItem"] = Relationship(back_populates="order")
     payment_method: Optional["PaymentMethod"] = Relationship()
+    address: Optional["Address"] = Relationship()
 
 class OrderItem(SQLModel, table=True):
     __tablename__ = "order_items"
