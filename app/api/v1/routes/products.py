@@ -75,8 +75,11 @@ async def get_product(
     service: ProductService = Depends(get_product_service)
 ):
     product = await service.get_product_detail(id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    if not product or product.status in ("BLOCKED", "DELETED"):
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found"
+        )
     return product
 
 @router.get("/{id}/similar", response_model=ProductShortListResponse)

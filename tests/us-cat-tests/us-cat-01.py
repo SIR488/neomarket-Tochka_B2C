@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from httpx import AsyncClient
 
 from app.infrastructure.b2b_client import B2BClient
