@@ -7,22 +7,23 @@ class CategoryService:
     def __init__(self, repository: CategoryRepository):
         self.repository = repository
 
-    async def get_category_tree(self) -> List[CategoryNode]:
+    async def get_category_tree(self) -> List[CategoryNode] | None:
         """Собирает дерево категорий из плоского списка"""
         categories = await self.repository.get_all_active()
 
         nodes: Dict[UUID, CategoryNode] = {
             cat.id: CategoryNode(
-                id=cat.id, 
+                id=cat.id,
                 name=cat.name,
                 parent_id=cat.parent_id,
                 children=[]
-            ) 
+            )
             for cat in categories
         }
-        
+
         tree: List[CategoryNode] = []
-        
+        orphans: List[UUID] = []
+
         for node in nodes.values():
             if node.parent_id is None:
                 tree.append(node)
@@ -31,8 +32,13 @@ class CategoryService:
                 if parent is not None:
                     parent.children.append(node)
                 else:
-                    tree.append(node)
-                    
+                    # ← Orphan node обнаружен
+                    orphans.append(node.id)
+                    tree.append(node)  # временно кладём в корень
+
+        if orphans:
+            return None
+
         return tree
 
     async def get_category_detail(

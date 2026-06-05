@@ -2,6 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.schemas.error import Error
 from app.infrastructure.database import get_db
 from app.infrastructure.repositories.category_repository import CategoryRepository
 from app.application.services.category_service import CategoryService
@@ -18,6 +19,15 @@ async def get_categories(
     service: CategoryService = Depends(get_category_service)
 ) -> CategoryTreeResponse:
     tree = await service.get_category_tree()
+
+    if not tree:
+        raise HTTPException(
+            status_code=422,
+            detail=Error(
+                code="ORPHAN_NODE",
+                message="Обнаружены категории с несуществующими родителями (broken hierarchy)"
+            ).model_dump()
+        )
     return CategoryTreeResponse(items=tree)
 
 @router.get("/{id}", response_model=CategoryDetailResponse, summary="Детальная информация о категории")
