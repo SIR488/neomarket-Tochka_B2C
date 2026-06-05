@@ -56,22 +56,18 @@ class FavoritesService:
         customer_id: UUID, 
         product_id: UUID, 
         events: List[SubscriptionEventType]
-    ) -> dict:
-        """Подписаться на уведомления о товаре"""
+    ) -> str:
+        """Возвращает: 'SUCCESS', 'PRODUCT_NOT_FOUND', 'ALREADY_SUBSCRIBED'"""
         product = await self.repository.get_product(product_id)
         if not product:
-            raise HTTPException(status_code=404, detail="Product not found")
-        
-        results = {"success": [], "failed": []}
+            return "PRODUCT_NOT_FOUND"
         
         for event in events:
             success = await self.repository.add_subscription(customer_id, product_id, event)
-            if success:
-                results["success"].append(event)
-            else:
-                results["failed"].append({"event": event, "reason": "Already subscribed"})
+            if not success:
+                return "ALREADY_SUBSCRIBED"
         
-        return results
+        return "SUCCESS"
 
     async def unsubscribe_from_product(
         self, 

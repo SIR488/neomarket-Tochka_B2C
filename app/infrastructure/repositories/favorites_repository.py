@@ -57,7 +57,7 @@ class FavoriteRepository:
         return True
 
     async def add_subscription(self, customer_id: UUID, product_id: UUID, event_type: SubscriptionEventType) -> bool:
-        """Добавить подписку на событие"""
+        """Добавить подписку на событие. Возвращает True если создана, False если дубликат."""
         subscription = ProductSubscription(
             customer_id=customer_id,
             product_id=product_id,
@@ -69,7 +69,7 @@ class FavoriteRepository:
             return True
         except IntegrityError:
             await self.session.rollback()
-            return True
+            return False
 
     async def remove_subscription(self, customer_id: UUID, product_id: UUID, event_type: SubscriptionEventType = None) -> int:
         """Удалить подписки"""

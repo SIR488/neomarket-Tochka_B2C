@@ -53,7 +53,14 @@ async def subscribe_to_product(
     customer_id: UUID = Depends(get_current_customer),
     service: FavoritesService = Depends(_get_favorites_service)
 ):
-    await service.subscribe_to_product(customer_id, product_id, request.events)
+    result = await service.subscribe_to_product(customer_id, product_id, request.events)
+    
+    if result == "PRODUCT_NOT_FOUND":
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if result == "ALREADY_SUBSCRIBED":
+        raise HTTPException(status_code=409, detail="Already subscribed")
+    
     return None
 
 @router.delete("/{product_id}/subscribe", status_code=204)

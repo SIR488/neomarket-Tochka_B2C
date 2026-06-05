@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlmodel import SQLModel, Field
 from typing import List
 from enum import StrEnum
+from pydantic import validator
 
 
 class SubscriptionEventType(StrEnum):
@@ -17,3 +18,9 @@ class FavoriteRead(SQLModel):
 class SubscribeRequest(SQLModel):
     events: List[SubscriptionEventType] = Field(default=[SubscriptionEventType.BACK_IN_STOCK, 
                                                          SubscriptionEventType.PRICE_DROP])
+    
+    @validator('events')
+    def not_empty(cls, v):
+        if not v:
+            raise ValueError('events array must not be empty')
+        return v
