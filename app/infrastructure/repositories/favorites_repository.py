@@ -1,50 +1,60 @@
-from sqlite3 import IntegrityError
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
-from app.infrastructure.models import Favorite, Product, ProductSubscription
+from app.infrastructure.models import Favorite, Product, ProductSubscription, SKU
 from app.api.v1.schemas.favorite import SubscriptionEventType
 
 class FavoriteRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def add_favorite(self, customer_id: UUID, product_id: UUID) -> Optional[UUID]:
+    async def add_favorite(self, customer_id: UUID, product_id: UUID) -> bool:
         product = await self.session.get(Product, product_id)
         if not product:
-            return None
+            return False
 
         fav = Favorite(customer_id=customer_id, product_id=product_id)
         self.session.add(fav)
         try:
             await self.session.commit()
-            await self.session.refresh(fav)
+            return True
         except IntegrityError:
             await self.session.rollback()
-            return None
+            return True
 
-        return fav.id
-
-    async def get_favorites(self, customer_id: UUID, limit: int = 10, offset: int = 0) -> List[Favorite]:
-        query = select(Favorite).where(Favorite.customer_id == customer_id).limit(limit).offset(offset)
+    async def get_favorites(self, customer_id: UUID, limit: int, offset: int) -> List[Favorite]:
+        query = (select(Favorite)
+                .where(Favorite.customer_id == customer_id)
+                .join(Product)
+                .where(Product.status == "MODERATED")
+                .options(
+                    selectinload(Favorite.product)
+                    .selectinload(Product.skus)
+                    .selectinload(SKU.stock)
+                )
+                .limit(limit)
+                .offset(offset))
         result = await self.session.execute(query)
-        favorites = result.scalars().all()
-        return list(favorites)
+        return list(result.scalars().all())
 
-    async def delete_favorite(self, customer_id: UUID, product_id: UUID) -> Optional[UUID]:
-        query = select(Favorite).where(Favorite.customer_id == customer_id, Favorite.product_id == product_id)
+    async def delete_favorite(self, customer_id: UUID, product_id: UUID) -> bool:
+        query = select(Favorite).where(
+            Favorite.customer_id == customer_id, 
+            Favorite.product_id == product_id
+        )
         result = await self.session.execute(query)
-
         favorite = result.scalar_one_or_none()
+        
         if not favorite:
-            return None
-
+            return True
+        
         await self.session.delete(favorite)
         await self.session.commit()
-
-        return favorite.id
+        return True
 
     async def add_subscription(self, customer_id: UUID, product_id: UUID, event_type: SubscriptionEventType) -> bool:
         """Добавить подписку на событие"""
@@ -59,7 +69,7 @@ class FavoriteRepository:
             return True
         except IntegrityError:
             await self.session.rollback()
-            return False
+            return True
 
     async def remove_subscription(self, customer_id: UUID, product_id: UUID, event_type: SubscriptionEventType = None) -> int:
         """Удалить подписки"""

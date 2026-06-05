@@ -11,7 +11,6 @@ class SubscriptionEventType(StrEnum):
 
 
 class FavoriteRead(SQLModel):
-    customer_id: UUID
     product_id: UUID
     created_at: datetime
 

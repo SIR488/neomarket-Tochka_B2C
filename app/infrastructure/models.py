@@ -19,6 +19,8 @@ class Favorite(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True))
     )
 
+    product: Optional["Product"] = Relationship(back_populates=None)
+    
     __table_args__ = (UniqueConstraint('customer_id', 'product_id'),)
 
 class Customer(SQLModel, table=True):
