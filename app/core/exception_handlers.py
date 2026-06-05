@@ -34,18 +34,17 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     status_code = exc.status_code
     
     if isinstance(exc.detail, dict):
-        code = exc.detail.get("code", "HTTP_ERROR")
-        message = exc.detail.get("message", "Произошла ошибка")
-        
-        extras = {k: v for k, v in exc.detail.items() if k not in ("code", "message")}
-        
-        error = Error(code=code, message=message)
-        if extras:
-            error.details = extras
-            
+        response_dict = {
+            "code": exc.detail.get("code", "HTTP_ERROR"),
+            "message": exc.detail.get("message", "Произошла ошибка")
+        }
+        for k, v in exc.detail.items():
+            if k not in ("code", "message"):
+                response_dict[k] = v
+                
         return JSONResponse(
             status_code=status_code,
-            content=error.model_dump(exclude_none=True)
+            content=response_dict
         )
     else:
         detail = str(exc.detail)

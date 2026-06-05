@@ -34,12 +34,13 @@ class B2BClient:
         except (urllib.error.URLError, TimeoutError):
             raise B2BUnavailableError("Сервис товаров временно недоступен, попробуйте позже")
 
-    async def reserve(self, idempotency_key: UUID, items: List[dict]) -> dict:
+    async def reserve(self, idempotency_key: UUID, order_id: UUID, items: List[dict]) -> dict:
         data = {
             "idempotency_key": str(idempotency_key),
+            "order_id": str(order_id),
             "items": [{"sku_id": str(i["sku_id"]), "quantity": i["quantity"]} for i in items]
         }
-        resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/reserve", data)
+        resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/inventory/reserve", data)
         return {"status": status, "data": resp}
 
     async def unreserve(self, order_id: UUID, items: List[dict]) -> dict:
@@ -47,7 +48,7 @@ class B2BClient:
             "order_id": str(order_id),
             "items": [{"sku_id": str(i["sku_id"]), "quantity": i["quantity"]} for i in items]
         }
-        resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/unreserve", data)
+        resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/inventory/unreserve", data)
         return {"status": status, "data": resp}
 
     async def fulfill(self, order_id: UUID, items: List[dict]) -> dict:
@@ -55,5 +56,5 @@ class B2BClient:
             "order_id": str(order_id),
             "items": [{"sku_id": str(i["sku_id"]), "quantity": i["quantity"]} for i in items]
         }
-        resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/fulfill", data)
+        resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/inventory/fulfill", data)
         return {"status": status, "data": resp}

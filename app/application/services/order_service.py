@@ -1,5 +1,6 @@
 from typing import List, Optional
 from uuid import UUID
+from uuid6 import uuid7
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
@@ -72,13 +73,14 @@ class OrderService:
             raise HTTPException(status_code=400, detail={"code": "INVALID_ADDRESS", "message": "Адрес доставки не найден или принадлежит другому пользователю"})
 
         # 3. Резервирование в B2B
+        order_id = uuid7()
         reserve_items = [{"sku_id": item.sku_id, "quantity": item.quantity} for item in request_items]
         try:
-            reserve_result = await self.b2b_client.reserve(idempotency_key, reserve_items)
+            reserve_result = await self.b2b_client.reserve(idempotency_key, order_id, reserve_items)
         except B2BUnavailableError as e:
             raise HTTPException(status_code=503, detail={"code": "B2B_UNAVAILABLE", "message": str(e)})
 
-        if reserve_result["status"] != 200 or not reserve_result.get("data", {}).get("reserved"):
+        if reserve_result["status"] != 200 or reserve_result.get("data", {}).get("status") != "RESERVED":
             # B2B returned failure (e.g. 409)
             failed_items = reserve_result.get("data", {}).get("failed_items", [])
             raise HTTPException(status_code=409, detail={"code": "RESERVE_FAILED", "message": "Не удалось зарезервировать товары", "failed_items": failed_items})
@@ -87,6 +89,7 @@ class OrderService:
         total_amount = sum(item.sku.price * item.quantity for item in request_items)
         
         order = Order(
+            id=order_id,
             user_id=user_id,
             status="PAID",
             total_amount=total_amount,
@@ -165,7 +168,7 @@ class OrderService:
         order = await self.get_order_by_id(user_id, order_id)
         
         if order.status not in ["CREATED", "PAID"]:
-            raise HTTPException(status_code=409, detail={"code": "INVALID_STATUS", "message": "Невозможно отменить заказ в текущем статусе"})
+            raise HTTPException(status_code=409, detail={"code": "CANCEL_NOT_ALLOWED", "message": "Невозможно отменить заказ в текущем статусе", "current_status": order.status})
             
         items_payload = [{"sku_id": str(item.sku_id), "quantity": item.quantity} for item in order.items]
         
@@ -198,8 +201,9 @@ class OrderService:
             
         valid_transitions = {
             "CREATED": ["PAID", "CANCELLED"],
-            "PAID": ["SHIPPED", "DELIVERED", "CANCEL_PENDING", "CANCELLED"],
-            "SHIPPED": ["DELIVERED", "CANCEL_PENDING", "CANCELLED"],
+            "PAID": ["ASSEMBLING", "DELIVERED", "CANCEL_PENDING", "CANCELLED"],
+            "ASSEMBLING": ["DELIVERING"],
+            "DELIVERING": ["DELIVERED"],
         }
         
         if new_status not in valid_transitions.get(order.status, []):
