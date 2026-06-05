@@ -1,16 +1,14 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Optional, Annotated, Union, Literal
+from typing import Optional, Annotated, Union, Literal, Dict, Any
 from uuid import UUID
 from pydantic import BaseModel, Field, HttpUrl, Discriminator
 
 class SortOption(StrEnum):
-    rating = "rating"
-    popularity = "popularity"
     price_asc = "price_asc"
     price_desc = "price_desc"
-    date_desc = "date_desc"
-    discount_desc = "discount_desc"
+    popularity = "popularity"
+    new = "new"
 
 class ProductStatus(StrEnum):
     created = "CREATED"
@@ -125,6 +123,13 @@ class SwitchFilter(BaseModel):
     slug: str
     name: str
     type: Literal["switch"] = "switch"
+
+class Filter(BaseModel):
+    category_id: Optional[UUID] = None
+    seller_id: Optional[UUID] = None
+    price_min: Optional[int] = Field(None, ge=0)
+    price_max: Optional[int] = Field(None, ge=0)
+    attributes: Optional[Dict[str, Any]] = Field()
 
 FilterItem = Annotated[
     Union[ListFilter, RangeFilter, SwitchFilter],

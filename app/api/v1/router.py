@@ -4,8 +4,8 @@ from app.api.v1.routes import (products, categories, auth,
                                addresses, payment_methods)
 
 api_router = APIRouter()
-api_router.include_router(products.router, prefix="/products", tags=["product"])
-api_router.include_router(categories.router, prefix="/categories", tags=["categories"])
+api_router.include_router(products.router, prefix="/catalog/products", tags=["catalog"])
+api_router.include_router(categories.router, prefix="/catalog/categories", tags=["catalog"])
 api_router.include_router(catalog.router, prefix="/catalog", tags=["catalog"])
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(favorites.router, prefix="/favorites", tags=["favorites"])
