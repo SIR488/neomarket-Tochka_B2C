@@ -264,3 +264,27 @@ class BannerEvent(SQLModel, table=True):
         default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True))
     )
+
+class Collection(SQLModel, table=True):
+    __tablename__ = "collections"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    title: str = Field(max_length=255)
+    description: Optional[str] = None
+    cover_image_url: Optional[str] = Field(default=None, max_length=500)
+    target_url: Optional[str] = Field(default=None, max_length=500)
+    priority: int = Field(default=0)
+    is_active: bool = Field(default=True)
+    start_date: Optional[date] = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+
+
+class CollectionProduct(SQLModel, table=True):
+    __tablename__ = "collection_products"
+    collection_id: UUID = Field(foreign_key="collections.id", primary_key=True)
+    product_id: UUID = Field(primary_key=True)
+    ordering: int = Field(default=0)
+    
+    __table_args__ = (UniqueConstraint('collection_id', 'product_id'),)
