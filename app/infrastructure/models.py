@@ -236,3 +236,31 @@ class ProductSubscription(SQLModel, table=True):
     )
     
     __table_args__ = (UniqueConstraint('customer_id', 'product_id', 'event_type'),)
+
+class Banner(SQLModel, table=True):
+    __tablename__ = "banners"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    title: str = Field(max_length=255)
+    image_url: str = Field(max_length=500)
+    link: str = Field(max_length=500)
+    priority: int = Field(default=0)
+    is_active: bool = Field(default=True)
+    start_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    end_at: Optional[datetime] = Field(default=None, sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
+
+
+class BannerEvent(SQLModel, table=True):
+    __tablename__ = "banner_events"
+    id: UUID = Field(default_factory=uuid7, primary_key=True)
+    banner_id: UUID = Field(foreign_key="banners.id")
+    user_id: Optional[UUID] = Field(default=None, foreign_key="customers.id")
+    event: str = Field(max_length=20)  # 'impression' | 'click'
+    timestamp: datetime = Field(sa_column=Column(DateTime(timezone=True)))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )
