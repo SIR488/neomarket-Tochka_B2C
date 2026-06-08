@@ -17,8 +17,11 @@ class ProductStatus(StrEnum):
     blocked = "BLOCKED"
 
 class Image(BaseModel):
-    url: HttpUrl
-    order: int
+    id: UUID
+    url: str
+    alt: str
+    ordering: int
+    is_main: bool
 
 class Characteristic(BaseModel):
     id: Optional[UUID] = None
@@ -33,40 +36,65 @@ class SkuShort(BaseModel):
 class Sku(BaseModel):
     id: UUID
     name: str
-    price: float
-    quantity: int
-    characteristics: list[Characteristic]
+    price: int
+    old_price: int
+    available_quantity: int
+    attributes: list[Characteristic]
     images: list[Image] = Field(default_factory=list)
-
-class ProductShort(BaseModel):
-    id: UUID
-    title: str
-    image: Optional[HttpUrl] = None
-    price: float
-    in_stock: bool
-    is_in_cart: bool
-
-class ProductShortListResponse(BaseModel):
-    total_count: int
-    limit: int
-    offset: int
-    items: list[ProductShort]
-
-class Product(BaseModel):
-    id: UUID
-    slug: str
-    title: str
-    description: Optional[str] = None
-    images: list[Image]
-    status: ProductStatus
-    characteristics: list[Characteristic]
-    skus: list[Sku]
 
 class CategoryNode(BaseModel):
     id: UUID
     name: str
     parent_id: Optional[UUID] = None
+    level: int
+    path: list[str]
     children: list["CategoryNode"] = Field(default_factory=list)
+
+class CategoryNodeShort(BaseModel):
+    id: UUID
+    name: str
+    parent_id: Optional[UUID] = None
+    level: int
+    path: list[str]
+
+class SellerShort(BaseModel):
+    id: UUID
+    display_name: str
+
+class ProductShort(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    category: CategoryNodeShort
+    min_price: int
+    old_price: int
+    has_stock: bool
+    rating: int
+    reviews_count: int
+    images: list[Image]
+    seller: SellerShort
+
+class ProductShortListResponse(BaseModel):
+    items: list[ProductShort]
+    total_count: int
+    limit: int
+    offset: int
+
+class Product(BaseModel):
+    id: UUID
+    name: str
+    slug: str
+    category: CategoryNodeShort
+    min_price: int
+    old_price: int
+    has_stock: bool
+    rating: int
+    reviews_count: int
+    images: list[Image]
+    seller: SellerShort
+    description: Optional[str] = None
+    attributes: list[Characteristic]
+    skus: list[Sku]
 
 class CategoryTreeResponse(BaseModel):
     items: list[CategoryNode]

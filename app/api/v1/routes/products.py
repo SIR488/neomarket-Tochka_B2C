@@ -2,10 +2,7 @@ import re
 from typing import Annotated, Any
 from uuid import UUID
 from fastapi import APIRouter, Query, Request, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database import get_db
-from app.infrastructure.repositories.product_repository import ProductRepository
 from app.application.services.product_service import ProductService
 from app.api.v1.schemas.catalog import (
     Product,
@@ -16,9 +13,8 @@ from app.api.v1.schemas.catalog import (
 
 router = APIRouter()
 
-async def get_product_service(db: AsyncSession = Depends(get_db)) -> ProductService:
-    repository = ProductRepository(db)
-    return ProductService(repository)
+async def get_product_service() -> ProductService:
+    return ProductService()
 
 def parse_dynamic_filters(request: Request) -> dict[str, Any]:
     filters: dict[str, Any] = {}
@@ -42,7 +38,7 @@ def parse_dynamic_filters(request: Request) -> dict[str, Any]:
                     filters[main_key][sub_key].append(value)
                 else:
                     filters[main_key][sub_key] = value
-        else:  # простой фильтр
+        else:
             if key.endswith('[]') or isinstance(value, list):
                 if main_key not in filters or not isinstance(filters[main_key], list):
                     filters[main_key] = []
@@ -57,7 +53,7 @@ async def list_products(
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
     offset: Annotated[int, Query(ge=0)] = 0,
     sort: SortOption | None = Query(None),
-    search: Annotated[str | None, Query(min_length=3, max_length=255)] = None,
+    q: Annotated[str | None, Query(min_length=3, max_length=255)] = None,
     service: ProductService = Depends(get_product_service),
 ):
     dynamic_filters = parse_dynamic_filters(request)
@@ -65,7 +61,7 @@ async def list_products(
         limit=limit,
         offset=offset,
         sort=sort,
-        search=search,
+        search=q,
         filters=dynamic_filters,
     )
 
@@ -86,10 +82,9 @@ async def get_product(
 async def get_similar_products(
     id: UUID,
     limit: Annotated[int, Query(ge=1, le=100)] = 8,
-    offset: Annotated[int, Query(ge=0)] = 0,
     service: ProductService = Depends(get_product_service),
 ):
-    return await service.get_similar_products(id, limit, offset)
+    return await service.get_similar_products(id, limit, 0)
 
 @router.get("/{product_id}/skus", response_model=list[SkuShort])
 async def list_product_skus(
