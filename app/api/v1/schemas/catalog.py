@@ -161,3 +161,29 @@ class BreadcrumbMeta(BaseModel):
 class BreadcrumbResponse(BaseModel):
     data: list[BreadcrumbItem]
     meta: BreadcrumbMeta
+
+
+class ImageRef(BaseModel):
+    id: UUID
+    url: str
+    alt: Optional[str] = None
+    ordering: int = 0
+    is_main: bool = False
+
+class CatalogProductCard(BaseModel):
+    id: UUID
+    name: str
+    min_price: int
+    has_stock: bool
+    images: list[ImageRef]
+    # остальные поля опционально
+    slug: Optional[str] = None
+    old_price: Optional[int] = None
+    rating: Optional[float] = None
+    reviews_count: int = 0
+
+class PaginatedCatalogProducts(BaseModel):
+    items: list[CatalogProductCard]
+    total_count: int
+    limit: int
+    offset: int

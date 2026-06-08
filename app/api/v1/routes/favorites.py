@@ -8,14 +8,14 @@ from app.infrastructure.database import get_db
 from app.api.v1.dependencies.customer_depends import get_current_customer
 from app.api.v1.schemas.favorite import FavoriteRead, SubscribeRequest, SubscriptionEventType
 from app.infrastructure.repositories.favorites_repository import FavoriteRepository
-from app.api.v1.schemas.catalog import ProductShortListResponse
+from app.api.v1.schemas.catalog import PaginatedCatalogProducts
 router = APIRouter()
 
 async def _get_favorites_service(db: AsyncSession = Depends(get_db)) -> FavoritesService:
     repository = FavoriteRepository(db)
     return FavoritesService(repository)
 
-@router.get("", response_model=ProductShortListResponse, status_code=200, summary="Избранные товары")
+@router.get("", response_model=PaginatedCatalogProducts, status_code=200, summary="Избранные товары")
 async def get_favorites(
     customer_id: UUID = Depends(get_current_customer),
     limit: Annotated[int, Query(ge=1, le=100)] = 10,

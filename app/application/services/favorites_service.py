@@ -1,11 +1,13 @@
 from typing import List, Optional
 from uuid import UUID
+from uuid6 import uuid7
 from fastapi import HTTPException
 
 from app.infrastructure.models import Favorite
 from app.infrastructure.repositories.favorites_repository import FavoriteRepository
 from app.api.v1.schemas.favorite import SubscriptionEventType
-from app.api.v1.schemas.catalog import ProductShortListResponse, ProductShort
+from app.api.v1.schemas.catalog import PaginatedCatalogProducts, CatalogProductCard, ImageRef
+
 
 class FavoritesService:
     def __init__(self, repository: FavoriteRepository):
@@ -14,8 +16,11 @@ class FavoritesService:
     async def add_to_favorites(self, customer_id: UUID, product_id: UUID) -> bool:
         return await self.repository.add_favorite(customer_id, product_id)
 
-    async def get_favorites(self, customer_id: UUID, limit: int, offset: int) -> ProductShortListResponse:
+
+    async def get_favorites(self, customer_id: UUID, limit: int, offset: int) -> PaginatedCatalogProducts:
         favorites = await self.repository.get_favorites(customer_id, limit, offset)
+        
+        total_count = await self.repository.get_favorites_count(customer_id)
         
         items = []
         for fav in favorites:
@@ -25,24 +30,36 @@ class FavoritesService:
             
             active_sku = next((sku for sku in product.skus if sku.status == "ACTIVE"), None)
             price = active_sku.price if active_sku else 0
-            in_stock = False
+            has_stock = False
             if active_sku and active_sku.stock:
-                in_stock = active_sku.stock.quantity > 0
+                has_stock = active_sku.stock.quantity > 0
+            
+            images = []
+            if product.image_url:
+                images.append(ImageRef(
+                    id=uuid7(),
+                    url=product.image_url,
+                    alt=product.title,
+                    ordering=0,
+                    is_main=True
+                ))
             
             items.append(
-                ProductShort(
+                CatalogProductCard(
                     id=fav.product_id,
-                    title=product.title,
-                    price=price,
-                    in_stock=in_stock,
-                    is_in_cart=False,
-                    image=product.image_url
+                    name=product.title,      # name вместо title
+                    min_price=price,         # min_price вместо price
+                    has_stock=has_stock,     # has_stock вместо in_stock
+                    images=images,           # список ImageRef вместо строки
+                    old_price=active_sku.old_price if active_sku else None,
+                    rating=product.rating if product.rating else None,
+                    reviews_count=product.orders_count or 0
                 )
             )
         
-        return ProductShortListResponse(
+        return PaginatedCatalogProducts(
             items=items,
-            total_count=len(favorites),
+            total_count=total_count,  # правильный total_count (отдельный запрос)
             limit=limit,
             offset=offset
         )

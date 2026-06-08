@@ -6,6 +6,8 @@ from app.api.v1.schemas.cart import CartResponse, CartItem, CartItemAddRequest, 
 from app.infrastructure.models import Cart
 from app.infrastructure.repositories.sku_repository import SKURepository
 from app.infrastructure.repositories.cart_repository import CartRepository
+from uuid6 import uuid7
+from app.api.v1.schemas.catalog import ImageRef
 
 class CartService:
     def __init__(self, repository: CartRepository, sku_repo: SKURepository):
@@ -48,6 +50,17 @@ class CartService:
             if not is_avail or avail < ci.quantity:
                 is_valid = False
 
+            # Создаём ImageRef из image_url
+            image = None
+            if sku.image_url:
+                image = ImageRef(
+                    id=uuid7(),
+                    url=sku.image_url,
+                    alt=sku.name,
+                    ordering=0,
+                    is_main=True
+                )
+
             items.append(CartItem(
                 sku_id=ci.sku_id,
                 product_id=sku.product_id,
@@ -58,7 +71,7 @@ class CartService:
                 line_total=line_total,
                 available_quantity=avail,
                 is_available=is_avail,
-                image_url=sku.image_url
+                image=image
             ))
             subtotal += line_total
             items_count += ci.quantity
@@ -169,6 +182,17 @@ class CartService:
                         new_value=avail
                     ))
 
+            # Создаём ImageRef для validate_cart
+            image = None
+            if sku and sku.image_url:
+                image = ImageRef(
+                    id=uuid7(),
+                    url=sku.image_url,
+                    alt=sku.name if sku else "Unknown",
+                    ordering=0,
+                    is_main=True
+                )
+
             items.append(CartItem(
                 sku_id=ci.sku_id,
                 product_id=sku.product_id if sku else ci.sku_id,
@@ -179,7 +203,7 @@ class CartService:
                 line_total=line_total,
                 available_quantity=avail,
                 is_available=is_avail,
-                image_url=sku.image_url if sku else None
+                image=image
             ))
             subtotal += line_total
             items_count += ci.quantity

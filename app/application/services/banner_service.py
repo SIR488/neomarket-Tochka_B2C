@@ -5,14 +5,14 @@ from fastapi import HTTPException
 
 from app.infrastructure.models import Banner, BannerEvent
 from app.infrastructure.repositories.banner_repository import BannerRepository
-from app.api.v1.schemas.banner import BannerResponse, BannersListResponse, BannerEventItem
+from app.api.v1.schemas.banner import BannerResponse, BannerEventItem
 
 
 class BannerService:
     def __init__(self, repository: BannerRepository):
         self.repository = repository
 
-    async def get_active_banners(self) -> BannersListResponse:
+    async def get_active_banners(self) -> List[BannerResponse]:  # 👈 возвращаем список
         banners = await self.repository.get_active_banners()
         items = [
             BannerResponse(
@@ -20,11 +20,13 @@ class BannerService:
                 title=b.title,
                 image_url=b.image_url,
                 link=b.link,
-                priority=b.priority
+                ordering=b.priority,  # priority → ordering
+                active_from=b.start_at,
+                active_to=b.end_at
             )
             for b in banners
         ]
-        return BannersListResponse(items=items, total_count=len(items))
+        return items  # 👈 без обёртки
 
     async def create_events(
         self, 
@@ -32,7 +34,7 @@ class BannerService:
         user_id: Optional[UUID] = None
     ) -> tuple[int, str]:
         if not events_data:
-            return -1,"EMPTY_EVENTS"
+            return -1, "EMPTY_EVENTS"
         
         # Проверяем существование всех баннеров
         for event in events_data:

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.application.services.banner_service import BannerService
 from app.infrastructure.database import get_db
 from app.api.v1.dependencies.customer_depends import get_current_customer_id_optional
-from app.api.v1.schemas.banner import BannersListResponse, BannerEventRequest, BannerEventResponse
+from app.api.v1.schemas.banner import BannerResponse, BannerEventRequest, BannerEventResponse
 
 router = APIRouter()
 
@@ -17,7 +17,7 @@ async def _get_banner_service(db: AsyncSession = Depends(get_db)) -> BannerServi
     return BannerService(repository)
 
 
-@router.get("/home/banners", response_model=BannersListResponse, status_code=200)
+@router.get("/catalog/banners", response_model=list[BannerResponse], status_code=200)  # 👈 путь и response_model
 async def get_banners(
     service: BannerService = Depends(_get_banner_service)
 ):
@@ -33,7 +33,7 @@ async def create_banner_events(
 ):
     """Отправить события показов/кликов для аналитики CTR"""
     accepted, error = await service.create_events(request.events, user_id)
-    if accepted==-1:
+    if accepted == -1:
         raise HTTPException(status_code=400, detail=error)
     return BannerEventResponse(
         accepted=accepted,

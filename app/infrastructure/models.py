@@ -7,7 +7,7 @@ from sqlalchemy import Column, UniqueConstraint, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from app.api.v1.schemas.payment import PaymentType, CardBrand
 from app.api.v1.schemas.favorite import SubscriptionEventType
-
+from app.api.v1.schemas.catalog import ImageRef
 
 class Favorite(SQLModel, table=True):
     __tablename__ = 'favorites'
@@ -161,7 +161,8 @@ class Stock(SQLModel, table=True):
 class Cart(SQLModel, table=True):
     __tablename__ = 'carts'
     id: UUID = Field(default_factory=uuid7, primary_key=True)
-    customer_id: UUID = Field(foreign_key="customers.id", unique=True, index=True)
+    customer_id: Optional[UUID] = Field(default=None, foreign_key="customers.id", index=True)
+    session_id: Optional[UUID] = Field(default=None, index=True, unique=True)
     
     cart_items: List["CartItem"] = Relationship(
         back_populates="cart",

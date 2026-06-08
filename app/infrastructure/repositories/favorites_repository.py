@@ -2,7 +2,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.models import Favorite, Product, ProductSubscription, SKU
@@ -103,3 +103,13 @@ class FavoriteRepository:
     async def get_product(self, product_id: UUID) -> Optional[Product]:
         """Проверить существование товара"""
         return await self.session.get(Product, product_id)
+
+    async def get_favorites_count(self, customer_id: UUID) -> int:
+        """Получить общее количество избранных товаров (без пагинации)"""
+        query = (select(func.count())
+                .select_from(Favorite)
+                .where(Favorite.customer_id == customer_id)
+                .join(Product)
+                .where(Product.status == "MODERATED"))
+        result = await self.session.execute(query)
+        return result.scalar_one()

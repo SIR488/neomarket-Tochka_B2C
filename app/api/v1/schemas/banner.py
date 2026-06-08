@@ -6,15 +6,12 @@ from pydantic import BaseModel, Field
 
 class BannerResponse(BaseModel):
     id: UUID
-    title: str
     image_url: str
     link: str
-    priority: int
-
-
-class BannersListResponse(BaseModel):
-    items: List[BannerResponse]
-    total_count: int
+    title: Optional[str] = None
+    ordering: Optional[int] = None
+    active_from: Optional[datetime] = None
+    active_to: Optional[datetime] = None
 
 
 class BannerEventItem(BaseModel):

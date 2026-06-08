@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from uuid import UUID
 from enum import StrEnum
+from app.api.v1.schemas.catalog import ImageRef
 
 class CartItemAddRequest(BaseModel):
     sku_id: UUID
@@ -25,7 +26,7 @@ class CartItem(BaseModel):
     line_total: int
     available_quantity: int
     is_available: bool
-    image_url: Optional[str] = None
+    image: Optional[ImageRef] = None
 
 class CartResponse(BaseModel):
     id: Optional[UUID] = None

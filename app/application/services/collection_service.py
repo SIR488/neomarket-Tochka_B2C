@@ -4,10 +4,10 @@ from fastapi import HTTPException
 
 from app.infrastructure.repositories.collection_repository import CollectionRepository
 from app.api.v1.schemas.collection import (
-    CollectionResponse, CollectionsListResponse,
-    CollectionProductsResponse
+    CollectionResponse, CollectionsListResponse
 )
-from app.api.v1.schemas.catalog import ProductShort
+from app.api.v1.schemas.catalog import CatalogProductCard, ImageRef
+from uuid6 import uuid7
 
 
 class CollectionService:
@@ -20,78 +20,57 @@ class CollectionService:
         collections = await self.repository.get_active_collections(limit, offset)
         total_count = await self.repository.get_active_collections_count()
         
-        items = [
-            CollectionResponse(
-                id=c.id,
-                title=c.title,
-                description=c.description,
-                cover_image_url=c.cover_image_url,
-                target_url=c.target_url,
-                priority=c.priority
+        items = []
+        for c in collections:
+            product_ids = await self.repository.get_collection_product_ids(c.id, limit=100, offset=0)
+            products = await self.repository.get_products_by_ids(product_ids)
+            
+            product_cards = []
+            for product in products:
+                active_sku = next((sku for sku in product.skus if sku.status == "ACTIVE"), None)
+                price = active_sku.price if active_sku else 0
+                has_stock = False
+                if active_sku and active_sku.stock:
+                    has_stock = active_sku.stock.quantity > 0
+                
+                # Создаём ImageRef
+                images = []
+                if product.image_url:
+                    images.append(ImageRef(
+                        id=uuid7(),
+                        url=product.image_url,
+                        alt=product.title,
+                        ordering=0,
+                        is_main=True
+                    ))
+                
+                product_cards.append(
+                    CatalogProductCard(
+                        id=product.id,
+                        name=product.title,
+                        min_price=price,
+                        has_stock=has_stock,
+                        images=images,
+                        old_price=active_sku.old_price if active_sku else None,
+                        rating=product.rating if product.rating else None,
+                        reviews_count=product.orders_count or 0
+                    )
+                )
+            
+            items.append(
+                CollectionResponse(
+                    id=c.id,
+                    name=c.title,
+                    description=c.description,
+                    cover_image_url=c.cover_image_url,
+                    target_url=c.target_url,
+                    priority=c.priority,
+                    products=product_cards
+                )
             )
-            for c in collections
-        ]
         
         return CollectionsListResponse(
             items=items,
-            total_count=total_count,
-            limit=limit,
-            offset=offset
-        )
-
-    async def get_collection_products(
-        self, collection_id: UUID, limit: int, offset: int
-    ) -> CollectionProductsResponse:
-        # 1. Найти подборку
-        collection = await self.repository.get_collection_by_id(collection_id)
-        if not collection:
-            raise HTTPException(status_code=404, detail="Collection not found")
-        
-        # 2. Получить product_ids из подборки
-        product_ids = await self.repository.get_collection_product_ids(
-            collection_id, limit, offset
-        )
-        total_count = await self.repository.get_collection_products_count(collection_id)
-        
-        # 3. Получить товары из БД
-        products = await self.repository.get_products_by_ids(product_ids)
-        
-        # 4. Разделить на доступные и недоступные
-        available_products_map = {p.id: p for p in products}
-        items = []
-        unavailable_ids = []
-        
-        for pid in product_ids:
-            product = available_products_map.get(pid)
-            if product:
-                # Берём первый активный SKU
-                active_sku = next(
-                    (sku for sku in product.skus if sku.status == "ACTIVE"), 
-                    None
-                )
-                price = active_sku.price if active_sku else 0
-                in_stock = False
-                if active_sku and active_sku.stock:
-                    in_stock = active_sku.stock.quantity > 0
-                
-                items.append(
-                    ProductShort(
-                        id=product.id,
-                        title=product.title,
-                        price=price,
-                        in_stock=in_stock,
-                        is_in_cart=False,
-                        image=product.image_url
-                    )
-                )
-            else:
-                unavailable_ids.append(pid)
-        
-        return CollectionProductsResponse(
-            collection_id=collection_id,
-            title=collection.title,
-            items=items,
-            unavailable_ids=unavailable_ids,
             total_count=total_count,
             limit=limit,
             offset=offset
