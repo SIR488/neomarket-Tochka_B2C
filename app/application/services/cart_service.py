@@ -35,7 +35,6 @@ class CartService:
 
 
     async def _build_response(self, cart: Cart) -> CartResponse:
-        """Создает ответ для эндпойинтов"""
         items = []
         subtotal = 0
         items_count = 0
@@ -49,8 +48,11 @@ class CartService:
 
             if not is_avail or avail < ci.quantity:
                 is_valid = False
+            else:
+                subtotal += line_total
 
-            # Создаём ImageRef из image_url
+            items_count += ci.quantity
+
             image = None
             if sku.image_url:
                 image = ImageRef(
@@ -73,8 +75,6 @@ class CartService:
                 is_available=is_avail,
                 image=image
             ))
-            subtotal += line_total
-            items_count += ci.quantity
 
         return CartResponse(
             id=cart.id,
@@ -205,8 +205,9 @@ class CartService:
                 is_available=is_avail,
                 image=image
             ))
-            subtotal += line_total
-            items_count += ci.quantity
+            if is_avail:
+                subtotal += line_total
+                items_count += ci.quantity
 
         validated_cart = CartResponse(
             id=cart.id,

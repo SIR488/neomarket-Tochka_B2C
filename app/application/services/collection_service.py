@@ -1,11 +1,9 @@
-from typing import List, Tuple
+from typing import List
 from uuid import UUID
 from fastapi import HTTPException
 
 from app.infrastructure.repositories.collection_repository import CollectionRepository
-from app.api.v1.schemas.collection import (
-    CollectionResponse, CollectionsListResponse
-)
+from app.api.v1.schemas.collection import CollectionResponse
 from app.api.v1.schemas.catalog import CatalogProductCard, ImageRef
 from uuid6 import uuid7
 
@@ -14,15 +12,12 @@ class CollectionService:
     def __init__(self, repository: CollectionRepository):
         self.repository = repository
 
-    async def get_collections(
-        self, limit: int, offset: int
-    ) -> CollectionsListResponse:
-        collections = await self.repository.get_active_collections(limit, offset)
-        total_count = await self.repository.get_active_collections_count()
-        
+    async def get_collections(self) -> List[CollectionResponse]:
+        collections = await self.repository.get_active_collections()
         items = []
+        
         for c in collections:
-            product_ids = await self.repository.get_collection_product_ids(c.id, limit=100, offset=0)
+            product_ids = await self.repository.get_all_collection_product_ids(c.id)
             products = await self.repository.get_products_by_ids(product_ids)
             
             product_cards = []
@@ -33,7 +28,6 @@ class CollectionService:
                 if active_sku and active_sku.stock:
                     has_stock = active_sku.stock.quantity > 0
                 
-                # Создаём ImageRef
                 images = []
                 if product.image_url:
                     images.append(ImageRef(
@@ -69,9 +63,4 @@ class CollectionService:
                 )
             )
         
-        return CollectionsListResponse(
-            items=items,
-            total_count=total_count,
-            limit=limit,
-            offset=offset
-        )
+        return items

@@ -37,15 +37,15 @@ async def add_cart_item(
     sku, avail, issue_type, msg = await service.check_sku(body.sku_id, body.quantity)
 
     if not sku or issue_type == CartValidationIssueType.PRODUCT_BLOCKED:
-        raise HTTPException(status_code=409, detail=msg)
+        raise HTTPException(status_code=404, detail=msg)
 
     if issue_type in (CartValidationIssueType.OUT_OF_STOCK, CartValidationIssueType.QUANTITY_REDUCED):
-        raise HTTPException(status_code=409, detail=msg or "SKU не найден")
+        raise HTTPException(status_code=409, detail=msg)
 
     cart_response = await service.add_item(cart_id, sku.id, body.quantity, sku.price)
 
     if cart_response is None:
-        raise HTTPException(status_code=400)
+        raise HTTPException(status_code=400, detail="Не удалось добавить товар")
 
     return cart_response
 

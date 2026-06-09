@@ -1,5 +1,5 @@
 from uuid import UUID
-from typing import List, Optional, Any
+from typing import List, Optional
 from pydantic import BaseModel
 
 from app.api.v1.schemas.catalog import CatalogProductCard
@@ -13,10 +13,3 @@ class CollectionResponse(BaseModel):
     target_url: Optional[str] = None
     priority: int
     products: List[CatalogProductCard] = []
-
-
-class CollectionsListResponse(BaseModel):
-    items: List[CollectionResponse]
-    total_count: int
-    limit: int
-    offset: int
