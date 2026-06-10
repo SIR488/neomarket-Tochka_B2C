@@ -104,18 +104,24 @@ class CartRepository:
     async def get_user_cart(self, customer_id: UUID) -> Optional[Cart]:
         """Получить корзину пользователя"""
         query = (select(Cart)
-                 .where(Cart.customer_id == customer_id).
-                 options(selectinload(Cart.cart_items)))
-
+                .where(Cart.customer_id == customer_id)
+                .options(
+                    selectinload(Cart.cart_items)
+                    .selectinload(CartItem.sku)
+                    .selectinload(SKU.stock)
+                ))
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 
     async def get_guest_cart(self, session_id: UUID) -> Optional[Cart]:
         """Получить гостевую корзину"""
         query = (select(Cart)
-                 .where(Cart.session_id == session_id)
-                 .options(selectinload(Cart.cart_items)))
-
+                .where(Cart.session_id == session_id)
+                .options(
+                    selectinload(Cart.cart_items)
+                    .selectinload(CartItem.sku)
+                    .selectinload(SKU.stock)
+                ))
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
 

@@ -289,3 +289,11 @@ class CollectionProduct(SQLModel, table=True):
     ordering: int = Field(default=0)
     
     __table_args__ = (UniqueConstraint('collection_id', 'product_id'),)
+
+class B2BEventIdempotency(SQLModel, table=True):
+    __tablename__ = "b2b_event_idempotency"
+    idempotency_key: UUID = Field(primary_key=True)
+    occurred_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        sa_column=Column(DateTime(timezone=True))
+    )

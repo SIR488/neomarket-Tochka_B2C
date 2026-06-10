@@ -1,11 +1,10 @@
 from datetime import date
 from typing import List, Optional
 from uuid import UUID
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.infrastructure.models import Collection, CollectionProduct, Product, SKU
+from app.infrastructure.models import Collection, CollectionProduct
 
 
 class CollectionRepository:
@@ -36,17 +35,3 @@ class CollectionRepository:
                  .order_by(CollectionProduct.ordering))
         result = await self.session.execute(query)
         return [row[0] for row in result.all()]
-
-    async def get_products_by_ids(self, product_ids: List[UUID]) -> List[Product]:
-        """Получить товары по списку ID с подгрузкой SKU и Stock"""
-        if not product_ids:
-            return []
-        query = (select(Product)
-                 .where(Product.id.in_(product_ids))
-                 .where(Product.status == "MODERATED")
-                 .options(
-                     selectinload(Product.skus)
-                     .selectinload(SKU.stock)
-                 ))
-        result = await self.session.execute(query)
-        return list(result.scalars().all())

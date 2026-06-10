@@ -1,38 +1,57 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
+from fastapi import HTTPException
 
 from app.api.v1.schemas.cart import CartResponse, CartItem, CartItemAddRequest, CartValidationIssueType, \
     CartValidationResponse, CartValidationIssue
 from app.infrastructure.models import Cart
 from app.infrastructure.repositories.sku_repository import SKURepository
 from app.infrastructure.repositories.cart_repository import CartRepository
+from app.infrastructure.b2b_client import B2BClient, B2BUnavailableError
 from uuid6 import uuid7
 from app.api.v1.schemas.catalog import ImageRef
 
+
 class CartService:
-    def __init__(self, repository: CartRepository, sku_repo: SKURepository):
+    def __init__(self, repository: CartRepository, sku_repo: SKURepository, b2b_client: B2BClient):
         self.repository = repository
         self.sku_repo = sku_repo
+        self.b2b_client = b2b_client
 
     async def check_sku(self, sku_id: UUID, requested_qty: int):
-        """Валидация SKU. Возвращает (sku, available_qty, issue_type, message)"""
-        sku = await self.sku_repo.get_with_stock(sku_id)
-        if not sku:
+        """Валидация SKU через B2B. Возвращает (sku, available_qty, issue_type, message)"""
+        try:
+            product_data = await self.b2b_client.get_product_by_sku(sku_id)
+        except B2BUnavailableError:
+            raise HTTPException(status_code=503, detail="B2B service unavailable")
+        
+        if not product_data:
             return None, 0, CartValidationIssueType.PRODUCT_DELETED, "SKU не найден"
-
-        if sku.status != "ACTIVE":
-            return sku, 0, CartValidationIssueType.PRODUCT_BLOCKED, "Товар заблокирован"
-
-        avail = sku.stock.quantity if sku.stock else 0
-
+        
+        if not product_data.get("is_active"):
+            return None, 0, CartValidationIssueType.PRODUCT_BLOCKED, "Товар заблокирован"
+        
+        avail = product_data.get("available_quantity", 0)
+        price = product_data.get("price", 0)
+        
+        class TempSku:
+            def __init__(self, data):
+                self.id = UUID(data["id"])
+                self.product_id = UUID(data["product_id"])
+                self.name = data["name"]
+                self.price = price
+                self.status = "ACTIVE" if data.get("is_active") else "BLOCKED"
+                self.image_url = data.get("image_url")
+                self.stock = type('obj', (object,), {'quantity': avail})()
+        
+        sku = TempSku(product_data)
+        
         if avail == 0:
             return sku, 0, CartValidationIssueType.OUT_OF_STOCK, "Нет в наличии"
-
         if avail < requested_qty:
             return sku, avail, CartValidationIssueType.QUANTITY_REDUCED, f"Доступно только {avail} шт."
-
+        
         return sku, avail, None, ""
-
 
     async def _build_response(self, cart: Cart) -> CartResponse:
         items = []
@@ -101,7 +120,6 @@ class CartService:
         await self.repository.clear_cart(cart_id)
 
     async def add_item(self, cart_id: UUID, sku_id: UUID, quantity: int, price: int) -> Optional[CartResponse]:
-
         await self.repository.add_or_update_item(cart_id, sku_id, quantity, price)
 
         updated_cart = await self.repository.get_cart_with_items(cart_id)
@@ -112,7 +130,6 @@ class CartService:
         return await self._build_response(updated_cart)
 
     async def update_item(self, cart_id, sku_id, quantity: int) -> Optional[CartResponse]:
-
         item = await self.repository.update_item_quantity(cart_id, sku_id, quantity)
         if not item:
             return None
@@ -125,7 +142,6 @@ class CartService:
         return await self._build_response(updated_cart)
 
     async def remove_item(self, cart_id: UUID, sku_id: UUID) -> Optional[CartResponse]:
-
         item = await self.repository.remove_item(cart_id, sku_id)
         if not item:
             return None

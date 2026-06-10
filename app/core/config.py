@@ -13,4 +13,7 @@ class Settings(BaseSettings):
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    B2B_API_URL: str = "http://b2b-service:8000"
+    B2B_SERVICE_KEY: str = "b2c_to_b2b_key"
+
 settings = Settings()

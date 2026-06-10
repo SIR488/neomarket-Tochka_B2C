@@ -2,7 +2,8 @@ from fastapi import APIRouter
 from app.api.v1.routes import (products, categories, auth, 
                                catalog, favorites, cart, buyer, 
                                addresses, payment_methods, 
-                               banners, collection)
+                               banners, collection,
+                               b2b_events)
 
 api_router = APIRouter()
 api_router.include_router(products.router, prefix="/products", tags=["product"])
@@ -16,3 +17,4 @@ api_router.include_router(addresses.router,prefix="/buyers/me/addresses", tags=[
 api_router.include_router(payment_methods.router,prefix="/buyers/me/payment-methods", tags=["payment_methods"])
 api_router.include_router(banners.router, tags=["catalog"])
 api_router.include_router(collection.router, tags=["catalog"])
+api_router.include_router(b2b_events.router, tags=["b2b_events"])
