@@ -96,9 +96,6 @@ class Product(BaseModel):
     attributes: list[Characteristic]
     skus: list[Sku]
 
-class CategoryTreeResponse(BaseModel):
-    items: list[CategoryNode]
-
 class CategoryParent(BaseModel):
     id: UUID
     name: str

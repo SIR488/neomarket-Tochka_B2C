@@ -1,7 +1,9 @@
 from typing import List, Dict, Optional
 from uuid import UUID
 from app.infrastructure.repositories.category_repository import CategoryRepository
-from app.api.v1.schemas.catalog import CategoryNode, CategoryDetailResponse, CategoryParent, CategorySeo, CategoryMetaTags, FilterItem, ListFilter, RangeFilter, SwitchFilter, FiltersResponse
+from app.api.v1.schemas.catalog import CategoryNode, CategoryDetailResponse, CategoryParent, CategorySeo, \
+    CategoryMetaTags, FilterItem, ListFilter, RangeFilter, SwitchFilter, FiltersResponse, CategoryNodeShort
+
 
 class CategoryService:
     def __init__(self, repository: CategoryRepository):
@@ -32,10 +34,40 @@ class CategoryService:
                 if parent is not None:
                     parent.children.append(node)
                 else:
-                    # ← Orphan node обнаружен
                     orphans.append(node.id)
-                    tree.append(node)  # временно кладём в корень
+                    tree.append(node)
+        if orphans:
+            return None
 
+        return tree
+
+
+    async def get_category_flat_tree(self) -> List[CategoryNodeShort] | None:
+        categories = await self.repository.get_all_active()
+
+        nodes: Dict[UUID, CategoryNodeShort] = {
+            cat.id: CategoryNodeShort(
+                id=cat.id,
+                name=cat.name,
+                parent_id=cat.parent_id,
+                level=0,
+                path=[]
+            )
+            for cat in categories
+        }
+
+        tree: List[CategoryNodeShort] = []
+        orphans: List[UUID] = []
+
+        for node in nodes.values():
+            if node.parent_id is None:
+                node.level += 1
+                tree.append(node)
+            else:
+                parent = nodes.get(node.parent_id)
+                if parent is None:
+                    orphans.append(node.id)
+                    tree.append(node)
         if orphans:
             return None
 

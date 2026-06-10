@@ -8,7 +8,7 @@ from app.api.v1.schemas.catalog import (
     Product,
     ProductShortListResponse,
     SkuShort,
-    SortOption,
+    SortOption, ProductShort,
 )
 
 router = APIRouter()
@@ -78,7 +78,7 @@ async def get_product(
         )
     return product
 
-@router.get("/{id}/similar", response_model=ProductShortListResponse)
+@router.get("/{id}/similar", response_model=list[ProductShort])
 async def get_similar_products(
     id: UUID,
     limit: Annotated[int, Query(ge=1, le=100)] = 8,
