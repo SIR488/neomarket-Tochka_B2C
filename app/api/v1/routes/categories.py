@@ -12,7 +12,7 @@ router = APIRouter()
 
 async def get_category_service(db: AsyncSession = Depends(get_db)) -> CategoryService:
     repository = CategoryRepository(db)
-    return CategoryService(repository)
+    return CategoryService(repository, )
 
 @router.get("", response_model=list[CategoryNodeShort], summary="Получить плоское дерево категорий")
 async def get_categories(

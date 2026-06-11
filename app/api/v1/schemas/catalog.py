@@ -121,7 +121,7 @@ class CategoryDetailResponse(BaseModel):
     product_count: Optional[int] = None
     seo: CategorySeo
     meta_tags: CategoryMetaTags
-    image_url: Optional[HttpUrl] = None
+    image_url: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

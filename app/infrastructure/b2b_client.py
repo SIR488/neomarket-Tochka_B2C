@@ -60,19 +60,24 @@ class B2BClient:
                 )
 
     async def list_products(self, params: Dict[str, Any]):
-        return await self._request("GET", "/api/v1/products", params=params)
+        return await self._request("GET", "/api/v1/public/products", params=params)
 
     async def get_product(self, product_id: UUID):
-        return await self._request("GET", f"/api/v1/products/{product_id}")
+        return await self._request("GET", f"/api/v1/public/products/{product_id}")
 
     async def get_similar_products(self, product_id: UUID, params: Dict[str, Any]):
-        return await self._request("GET", f"/api/v1/products/{product_id}/similar", params=params)
+        return await self._request("GET", f"/api/v1/public/products/{product_id}/similar", params=params)
 
     async def get_product_skus(self, product_id: UUID):
-        return await self._request("GET", f"/api/v1/products/{product_id}/skus")
+        return await self._request("GET", f"/api/v1/public/products/{product_id}/skus")
 
     async def get_facets(self, category_id: UUID, dynamic_filters: dict[str, Any] | None = None):
         params = {"category_id": str(category_id)}
         if dynamic_filters:
-            params.update(dynamic_filters)   # или правильно преобразовать в filter[...]
-        return await self._request("GET", "/api/v1/facets", params=params)
+            params.update(dynamic_filters)
+        return await self._request("GET", "/api/v1/public/facets", params=params)
+
+    async def get_categories(self, parent_id: UUID = None, only_root: bool = False):
+        params = {"parent_id": str(parent_id),
+                  "only_root": only_root}
+        return await self._request("GET", "/api/v1/public/categories", params=params)
