@@ -49,10 +49,15 @@ class ProductService:
         data = await self.b2b_client.get_product(product_id)
         return Product.model_validate(data) if data else None
 
-    async def get_similar_products(self, product_id: UUID, limit=8, offset=0):
-        params = {"limit": limit, "offset": offset}
+    async def get_similar_products(self, product_id: UUID, limit=8):
+        params = {"limit": limit}
         data = await self.b2b_client.get_similar_products(product_id, params)
-        return [ProductShort.model_validate(item) for item in data]
+        valid = [ProductShort.model_validate(item) for item in data]
+        similar = [
+            item for item in valid
+            if str(item.id) != str(product_id)
+        ]
+        return similar
 
     async def get_product_skus(self, product_id: UUID):
         data = await self.b2b_client.get_product_skus(product_id)

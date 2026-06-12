@@ -80,4 +80,4 @@ class B2BClient:
     async def get_categories(self, parent_id: UUID = None, only_root: bool = False):
         params = {"parent_id": str(parent_id),
                   "only_root": only_root}
-        return await self._request("GET", "/api/v1/public/categories", params=params)
+        return await self._request("GET", "/api/v1/categories", params=params)

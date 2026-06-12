@@ -84,7 +84,7 @@ async def get_similar_products(
     limit: Annotated[int, Query(ge=1, le=100)] = 8,
     service: ProductService = Depends(get_product_service),
 ):
-    return await service.get_similar_products(id, limit, 0)
+    return await service.get_similar_products(id, limit)
 
 @router.get("/{product_id}/skus", response_model=list[SkuShort])
 async def list_product_skus(
