@@ -27,6 +27,7 @@ class CartItem(BaseModel):
     available_quantity: int
     is_available: bool
     image: Optional[ImageRef] = None
+    unavailable_reason: Optional[str] = None
 
 class CartResponse(BaseModel):
     id: Optional[UUID] = None

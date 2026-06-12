@@ -3,23 +3,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.application.services.collection_service import CollectionService
-from app.infrastructure.database import get_db
-from app.infrastructure.repositories.collection_repository import CollectionRepository
+from app.api.v1.dependencies.collection_depends import get_collection_service
 from app.api.v1.schemas.collection import CollectionResponse
 
 router = APIRouter()
 
 
-async def _get_collection_service(
-    db: AsyncSession = Depends(get_db)
-) -> CollectionService:
-    repository = CollectionRepository(db)
-    return CollectionService(repository)
-
-
 @router.get("/catalog/collections", response_model=list[CollectionResponse])
 async def get_collections(
-    service: CollectionService = Depends(_get_collection_service)
+    service: CollectionService = Depends(get_collection_service)
 ):
     """Список активных подборок с товарами"""
     return await service.get_collections()

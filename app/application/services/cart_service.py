@@ -62,7 +62,7 @@ class CartService:
         for ci in cart.cart_items:
             sku = ci.sku
             avail = sku.stock.quantity if sku.stock else 0
-            is_avail = sku.status == "ACTIVE" and avail > 0
+            is_avail = sku.status == "ACTIVE" and avail > 0 and ci.unavailable_reason is None
             line_total = sku.price * ci.quantity
 
             if not is_avail or avail < ci.quantity:
@@ -92,7 +92,8 @@ class CartService:
                 line_total=line_total,
                 available_quantity=avail,
                 is_available=is_avail,
-                image=image
+                image=image,
+                unavailable_reason=ci.unavailable_reason
             ))
 
         return CartResponse(
@@ -184,7 +185,7 @@ class CartService:
                 issue_type = CartValidationIssueType.QUANTITY_REDUCED
                 msg = f"Доступно только {avail} шт."
 
-            is_avail = sku.status == "ACTIVE" and avail >= ci.quantity if sku else False
+            is_avail = sku.status == "ACTIVE" and avail >= ci.quantity and ci.unavailable_reason is None if sku else False
             line_total = sku.price * ci.quantity if sku else 0
 
             if not is_avail:
@@ -198,7 +199,6 @@ class CartService:
                         new_value=avail
                     ))
 
-            # Создаём ImageRef для validate_cart
             image = None
             if sku and sku.image_url:
                 image = ImageRef(
@@ -219,7 +219,8 @@ class CartService:
                 line_total=line_total,
                 available_quantity=avail,
                 is_available=is_avail,
-                image=image
+                image=image,
+                unavailable_reason=ci.unavailable_reason
             ))
             if is_avail:
                 subtotal += line_total

@@ -176,6 +176,7 @@ class CartItem(SQLModel, table=True):
     sku_id: UUID = Field(foreign_key="skus.id")
     quantity: int = Field(default=1, nullable=False)
     unit_price_at_add: Optional[int] = Field(default=None)
+    unavailable_reason: Optional[str] = Field(default=None, max_length=50)
 
     cart: Cart = Relationship(back_populates="cart_items")
     sku: SKU = Relationship()

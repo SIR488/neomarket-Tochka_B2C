@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 from datetime import datetime
-from pydantic import BaseModel
+from sqlmodel import SQLModel
 from typing import Dict, Any
 
 from app.infrastructure.database import get_db
@@ -12,7 +12,7 @@ from app.core.config import settings
 router = APIRouter()
 
 
-class B2BEvent(BaseModel):
+class B2BEvent(SQLModel):
     idempotency_key: UUID
     event_type: str
     occurred_at: datetime
@@ -29,7 +29,7 @@ def verify_service_key(x_service_key: str = Header(..., alias="X-Service-Key")):
     return x_service_key
 
 
-@router.post("/api/v1/b2b/events", summary="Прием событий от B2B", status_code=202)
+@router.post("", summary="Прием событий от B2B", status_code=202)
 async def handle_b2b_event(
     event: B2BEvent,
     service_key: str = Depends(verify_service_key),
