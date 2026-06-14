@@ -3,7 +3,7 @@ from typing import List, Dict, Optional, Any
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from app.infrastructure.b2b_category_client import B2BCategoryClient
+from app.infrastructure.b2b_client import B2BClient
 from app.infrastructure.repositories.category_repository import CategoryRepository
 from app.api.v1.schemas.catalog import (
     CategoryNode, CategoryNodeShort, CategoryDetailResponse,
@@ -13,7 +13,7 @@ from app.api.v1.schemas.error import Error
 
 class CategoryService:
     def __init__(self, repository: CategoryRepository):
-        self.b2b_client = B2BCategoryClient()
+        self.b2b_client = B2BClient()
         self.repository = repository
 
     def _normalize_category(self, cat: dict | Any) -> dict:
@@ -118,76 +118,76 @@ class CategoryService:
         flat.sort(key=lambda x: " > ".join(x.path))
         return flat
 
-        async def get_category_detail(
-                self,
-                category_id: UUID,
-                include_product_count: bool = False,
-                lang: str = "ru"
-        ) -> Optional[CategoryDetailResponse]:
-            cat = await self.repository.get_by_id(category_id)
-            if not cat:
-                return None
+    async def get_category_detail(
+            self,
+            category_id: UUID,
+            include_product_count: bool = False,
+            lang: str = "ru"
+    ) -> Optional[CategoryDetailResponse]:
+        cat = await self.repository.get_by_id(category_id)
+        if not cat:
+            return None
 
-            parent_data = None
-            if cat.parent_id:
-                parent = await self.repository.get_by_id(cat.parent_id)
-                if parent:
-                    parent_data = CategoryParent(
-                        id=parent.id,
-                        name=parent.name,
-                        slug=parent.slug
-                    )
+        parent_data = None
+        if cat.parent_id:
+            parent = await self.repository.get_by_id(cat.parent_id)
+            if parent:
+                parent_data = CategoryParent(
+                    id=parent.id,
+                    name=parent.name,
+                    slug=parent.slug
+                )
 
-            product_count = None
-            if include_product_count:
-                product_count = await self.repository.get_product_count(category_id)
+        product_count = None
+        if include_product_count:
+            product_count = await self.repository.get_product_count(category_id)
 
-            return CategoryDetailResponse(
-                id=cat.id,
-                name=cat.name,
-                slug=cat.slug,
-                description=cat.description,
-                parent=parent_data,
-                product_count=product_count,
-                seo=CategorySeo(
-                    title=cat.seo_title or cat.name,
-                    description=cat.seo_description or "",
-                    keywords=[]
-                ),
-                meta_tags=CategoryMetaTags(
-                    og_title=cat.seo_title or cat.name,
-                    og_description=cat.seo_description or cat.description,
-                ),
-                image_url=cat.image_url,
-                is_active=cat.is_active,
-                created_at=cat.created_at,
-                updated_at=cat.updated_at
-            )
+        return CategoryDetailResponse(
+            id=cat.id,
+            name=cat.name,
+            slug=cat.slug,
+            description=cat.description,
+            parent=parent_data,
+            product_count=product_count,
+            seo=CategorySeo(
+                title=cat.seo_title or cat.name,
+                description=cat.seo_description or "",
+                keywords=[]
+            ),
+            meta_tags=CategoryMetaTags(
+                og_title=cat.seo_title or cat.name,
+                og_description=cat.seo_description or cat.description,
+            ),
+            image_url=cat.image_url,
+            is_active=cat.is_active,
+            created_at=cat.created_at,
+            updated_at=cat.updated_at
+        )
 
-        async def get_category_filters(self, category_id: UUID) -> Optional[FiltersResponse]:
-            data = await self.repository.get_category_filters(category_id)
-            if data is None:
-                return None
+    async def get_category_filters(self, category_id: UUID) -> Optional[FiltersResponse]:
+        data = await self.repository.get_category_filters(category_id)
+        if data is None:
+            return None
 
-            items: List[FilterItem] = []
-            grouped_chars: Dict[str, List[str]] = {}
+        items: List[FilterItem] = []
+        grouped_chars: Dict[str, List[str]] = {}
 
-            for name, value in data["characteristics"]:
-                grouped_chars.setdefault(name, []).append(value)
+        for name, value in data["characteristics"]:
+            grouped_chars.setdefault(name, []).append(value)
 
-            for name, values in grouped_chars.items():
-                items.append(ListFilter(
-                    slug=name.lower(),
-                    name=name,
-                    value=values
-                ))
+        for name, values in grouped_chars.items():
+            items.append(ListFilter(
+                slug=name.lower(),
+                name=name,
+                value=values
+            ))
 
-            if data["min_price"] is not None and data["max_price"] is not None:
-                items.append(RangeFilter(
-                    slug="price",
-                    name="Цена",
-                    min=float(data["min_price"] / 100),
-                    max=float(data["max_price"] / 100)
-                ))
+        if data["min_price"] is not None and data["max_price"] is not None:
+            items.append(RangeFilter(
+                slug="price",
+                name="Цена",
+                min=float(data["min_price"] / 100),
+                max=float(data["max_price"] / 100)
+            ))
 
-            return FiltersResponse(items=items)
+        return FiltersResponse(items=items)

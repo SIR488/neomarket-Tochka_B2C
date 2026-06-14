@@ -2,13 +2,13 @@ import pytest
 from unittest.mock import AsyncMock
 from httpx import AsyncClient
 
-from app.infrastructure.b2b_category_client import B2BCategoryClient
+from app.infrastructure.b2b_client import B2BClient
 from app.main import app
 
 
 @pytest.fixture
 def mock_b2b_client():
-    mock = AsyncMock(spec=B2BCategoryClient)
+    mock = AsyncMock(spec=B2BClient)
     yield mock
 
 

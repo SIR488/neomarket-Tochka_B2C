@@ -2,12 +2,12 @@ from typing import Any
 from uuid import UUID
 
 from app.api.v1.schemas.catalog import ProductShortListResponse, Product, SkuShort, ProductShort
-from app.infrastructure.b2b_category_client import B2BCategoryClient
+from app.infrastructure.b2b_client import B2BClient
 
 
 class ProductService:
     def __init__(self):
-        self.b2b_client = B2BCategoryClient()
+        self.b2b_client = B2BClient()
 
     async def get_products(
             self,

@@ -5,6 +5,8 @@ import json
 from typing import List, Dict, Any, Optional
 from uuid import UUID
 
+from fastapi import HTTPException
+
 from app.core.config import settings
 
 
@@ -36,7 +38,7 @@ class B2BClient:
             except Exception:
                 return {"error": "unknown"}, e.code
         except (urllib.error.URLError, TimeoutError):
-            raise B2BUnavailableError("Сервис товаров временно недоступен, попробуйте позже")
+            raise HTTPException(status_code=502, detail = "Сервис товаров временно недоступен, попробуйте позже")
 
     async def get_products_by_ids(self, product_ids: List[UUID]) -> Dict[UUID, dict]:
         """Batch-запрос к B2B для получения данных товаров"""
@@ -90,3 +92,32 @@ class B2BClient:
         }
         resp, status = await asyncio.to_thread(self._make_request, "POST", "/api/v1/inventory/fulfill", data)
         return {"status": status, "data": resp}
+
+    async def list_products(self, params: Dict[str, Any]):
+        resp, status = await asyncio.to_thread(self._make_request,"GET", "/api/v1/public/products", params)
+        return  resp
+
+    async def get_product(self, product_id: UUID):
+        resp, status = await asyncio.to_thread(self._make_request, "GET", f"/api/v1/public/products/{product_id}")
+        return resp
+
+    async def get_similar_products(self, product_id: UUID, params: Dict[str, Any]):
+        resp, status = await asyncio.to_thread(self._make_request, "GET", f"/api/v1/public/products/{product_id}/similar", params)
+        return resp
+
+    async def get_product_skus(self, product_id: UUID):
+        resp, status =  await asyncio.to_thread(self._make_request, "GET", f"/api/v1/public/products/{product_id}/skus")
+        return resp
+
+    async def get_facets(self, category_id: UUID, dynamic_filters: dict[str, Any] | None = None):
+        params = {"category_id": str(category_id)}
+        if dynamic_filters:
+            params.update(dynamic_filters)
+        resp, status =  await asyncio.to_thread(self._make_request, "GET", "/api/v1/public/facets", params)
+        return resp
+
+    async def get_categories(self, parent_id: UUID = None, only_root: bool = False):
+        params = {"parent_id": str(parent_id),
+                  "only_root": only_root}
+        resp, status =  await asyncio.to_thread(self._make_request, "GET", "/api/v1/categories", params)
+        return  resp
