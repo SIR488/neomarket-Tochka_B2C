@@ -59,14 +59,14 @@ class B2BClient:
         if not product_ids:
             return {}
         
-        ids_param = ",".join(str(pid) for pid in product_ids)
+        data = {"product_ids": [str(pid) for pid in product_ids]}
         resp, status = await asyncio.to_thread(
-            self._make_request, "GET", f"/api/v1/products?ids={ids_param}", None
+            self._make_request, "POST", "/api/v1/public/products/batch", data
         )
         if status != 200:
             raise B2BUnavailableError("Failed to fetch products from B2B")
         
-        return {UUID(item["id"]): item for item in resp.get("items", [])}
+        return {UUID(item["id"]): item for item in resp.get("products", [])}
 
     async def get_product_by_sku(self, sku_id: UUID) -> Optional[dict]:
         """Получить данные SKU из B2B"""

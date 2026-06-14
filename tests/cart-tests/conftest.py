@@ -50,12 +50,38 @@ async def client(db_session):
 @pytest.fixture
 def test_b2b_mock(monkeypatch):
     async def mock_get_skus_by_ids(self, sku_ids):
-        return {str(sid): {"id": str(sid), "product_id": str(sid), "price": 1000, "available_quantity": 100, "is_active": True, "name": "Mock SKU"} for sid in sku_ids}
+        return {str(sid): {
+            "id": str(sid),
+            "product_id": str(sid),  # ключевое поле
+            "price": 1000,
+            "available_quantity": 100,
+            "is_active": True,
+            "name": "Mock SKU"
+        } for sid in sku_ids}
+    
+    async def mock_get_products_by_ids(self, product_ids):
+        return {pid: {
+            "id": str(pid),
+            "product_id": str(pid),
+            "title": "Mock Product",
+            "price": 1000,
+            "available_quantity": 100,
+            "is_active": True,
+            "image_url": "https://example.com/image.jpg"
+        } for pid in product_ids}
     
     async def mock_get_product_by_sku(self, sku_id):
-        return {"id": str(sku_id), "product_id": str(sku_id), "price": 1000, "available_quantity": 100, "is_active": True, "name": "Mock SKU"}
+        return {
+            "id": str(sku_id),
+            "product_id": str(sku_id),
+            "price": 1000,
+            "available_quantity": 100,
+            "is_active": True,
+            "name": "Mock SKU"
+        }
     
     monkeypatch.setattr(B2BClient, "get_skus_by_ids", mock_get_skus_by_ids)
+    monkeypatch.setattr(B2BClient, "get_products_by_ids", mock_get_products_by_ids)
     monkeypatch.setattr(B2BClient, "get_product_by_sku", mock_get_product_by_sku)
 
 
