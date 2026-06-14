@@ -1,9 +1,9 @@
 from app.api.v1.schemas.catalog import FilterItem, ListFilter, RangeFilter
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from uuid import UUID
 from fastapi import HTTPException, status
 
-from app.infrastructure.b2b_client import B2BClient
+from app.infrastructure.b2b_category_client import B2BCategoryClient
 from app.infrastructure.repositories.category_repository import CategoryRepository
 from app.api.v1.schemas.catalog import (
     CategoryNode, CategoryNodeShort, CategoryDetailResponse,
@@ -12,95 +12,111 @@ from app.api.v1.schemas.catalog import (
 from app.api.v1.schemas.error import Error
 
 class CategoryService:
-        def __init__(self, repository: CategoryRepository):
-            self.b2b_client = B2BClient()
-            self.repository = repository
+    def __init__(self, repository: CategoryRepository):
+        self.b2b_client = B2BCategoryClient()
+        self.repository = repository
 
-        async def _build_tree_with_level_and_path(self, categories):
-            nodes: Dict[UUID, CategoryNode] = {
-                cat.id: CategoryNode(
-                    id=cat.id,
-                    name=cat.name,
-                    parent_id=cat.parent_id,
-                    level=0,
-                    path=[],
-                    children=[]
-                )
-                for cat in categories
+    def _normalize_category(self, cat: dict | Any) -> dict:
+        if isinstance(cat, dict):
+            return {
+                "id": cat.get("id"),
+                "name": cat.get("name"),
+                "parent_id": cat.get("parent_id"),
+                "slug": cat.get("slug"),
+            }
+        else:
+            return {
+                "id": cat.id,
+                "name": cat.name,
+                "parent_id": cat.parent_id,
+                "slug": getattr(cat, "slug", None),
             }
 
-            tree: List[CategoryNode] = []
-            orphans: List[UUID] = []
+    async def _build_tree_with_level_and_path(self, raw_categories: List[Any]):
+        normalized = [self._normalize_category(cat) for cat in raw_categories]
 
-            for node in nodes.values():
-                if node.parent_id is None:
-                    tree.append(node)
+        nodes: Dict[UUID, CategoryNode] = {}
+        for cat in normalized:
+            cat_id = UUID(cat["id"]) if isinstance(cat["id"], str) else cat["id"]
+            nodes[cat_id] = CategoryNode(
+                id=cat_id,
+                name=cat["name"],
+                parent_id=UUID(cat["parent_id"]) if cat.get("parent_id") else None,
+                level=0,
+                path=[],
+                children=[]
+            )
+
+        tree: List[CategoryNode] = []
+        orphans: List[UUID] = []
+
+        for node in nodes.values():
+            if node.parent_id is None:
+                tree.append(node)
+            else:
+                parent = nodes.get(node.parent_id)
+                if parent is not None:
+                    parent.children.append(node)
                 else:
-                    parent = nodes.get(node.parent_id)
-                    if parent is not None:
-                        parent.children.append(node)
-                    else:
-                        orphans.append(node.id)
-                        tree.append(node)
+                    orphans.append(node.id)
+                    tree.append(node)
 
-            if orphans:
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=Error(
-                        code="ORPHAN_NODE",
-                        message="Обнаружена сломанная иерархия категорий",
-                        details={
-                            "orphan_ids": [str(oid) for oid in orphans],
-                            "description": "Некоторые категории ссылаются на несуществующий parent_id"
-                        }
-                    ).model_dump()
-                )
+        if orphans:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=Error(
+                    code="ORPHAN_NODE",
+                    message="Обнаружена сломанная иерархия категорий",
+                    details={
+                        "orphan_ids": [str(oid) for oid in orphans],
+                        "description": "Некоторые категории ссылаются на несуществующий parent_id"
+                    }
+                ).model_dump()
+            )
 
-            def calculate_level_and_path(node: CategoryNode, current_level: int = 0, current_path: List[str] = None):
-                if current_path is None:
-                    current_path = []
+        def calculate_level_and_path(node: CategoryNode, current_level: int = 0, current_path: List[str] = None):
+            if current_path is None:
+                current_path = []
+            node.level = current_level
+            node.path = current_path + [node.name]
+            for child in node.children:
+                calculate_level_and_path(child, current_level + 1, node.path)
 
-                node.level = current_level
-                node.path = current_path + [node.name]
+        for root in tree:
+            calculate_level_and_path(root)
 
-                for child in node.children:
-                    calculate_level_and_path(child, current_level + 1, node.path)
+        return tree
 
-            for root in tree:
-                calculate_level_and_path(root)
+    async def get_category_tree(self) -> List[CategoryNode]:
+        categories = await self.b2b_client.get_categories()
+        if not categories:
+            return []
+        return await self._build_tree_with_level_and_path(categories)
 
-            return tree
+    async def get_category_flat_tree(self) -> List[CategoryNodeShort]:
+        categories = await self.b2b_client.get_categories()
+        if not categories:
+            return []
 
-        async def get_category_tree(self) -> List[CategoryNode]:
-            categories = await self.b2b_client.get_categories()
-            if not categories:
-                return []
-            return await self._build_tree_with_level_and_path(categories)
+        tree = await self._build_tree_with_level_and_path(categories)
+        flat: List[CategoryNodeShort] = []
 
-        async def get_category_flat_tree(self) -> List[CategoryNodeShort]:
-            categories = await self.repository.get_all_active()
-            if not categories:
-                return []
-            tree = await self._build_tree_with_level_and_path(categories)
+        def flatten(node: CategoryNode):
+            flat.append(CategoryNodeShort(
+                id=node.id,
+                name=node.name,
+                parent_id=node.parent_id,
+                level=node.level,
+                path=node.path
+            ))
+            for child in node.children:
+                flatten(child)
 
-            flat: List[CategoryNodeShort] = []
+        for root in tree:
+            flatten(root)
 
-            def flatten(node: CategoryNode):
-                flat.append(CategoryNodeShort(
-                    id=node.id,
-                    name=node.name,
-                    parent_id=node.parent_id,
-                    level=node.level,
-                    path=node.path
-                ))
-                for child in node.children:
-                    flatten(child)
-
-            for root in tree:
-                flatten(root)
-
-            flat.sort(key=lambda x: x.path)
-            return flat
+        flat.sort(key=lambda x: " > ".join(x.path))
+        return flat
 
         async def get_category_detail(
                 self,

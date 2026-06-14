@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from fastapi import HTTPException
 
 
-class B2BClient:
+class B2BCategoryClient:
     def __init__(self):
         self.base_url = "http://localhost:8080"
         self.service_key = "fffsdfsfsd"
