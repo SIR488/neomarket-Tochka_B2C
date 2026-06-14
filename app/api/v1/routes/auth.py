@@ -14,7 +14,7 @@ from app.api.v1.dependencies.security import (
     create_auth_tokens,
     decode_token
 )
-from app.api.v1.dependencies.cart_depends import merge_guest_cart
+from app.api.v1.dependencies.cart_depends import merge_guest_cart_direct
 
 router = APIRouter()
 
@@ -63,7 +63,7 @@ async def login_customer(
         raise HTTPException(status_code=401, detail="Неверный email или пароль")
     
     if session_id:
-        await merge_guest_cart(existing_customer.id, session_id)
+        await merge_guest_cart_direct(existing_customer.id, session_id, session)
     
     await session.commit()
     

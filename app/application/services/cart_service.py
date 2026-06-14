@@ -114,6 +114,24 @@ class CartService:
 
     async def get_cart(self, cart_id: UUID) -> CartResponse:
         cart = await self.repository.get_by_id(cart_id)
+        
+        sku_ids = [ci.sku_id for ci in cart.cart_items]
+        
+        if sku_ids:
+            try:
+                skus_data = await self.b2b_client.get_skus_by_ids(sku_ids)
+            except B2BUnavailableError:
+                raise HTTPException(status_code=503, detail="B2B service unavailable")
+            
+            for ci in cart.cart_items:
+                b2b_sku = skus_data.get(str(ci.sku_id))
+                if b2b_sku:
+                    ci.sku.price = b2b_sku.get("price", ci.sku.price)
+                    if ci.sku.stock:
+                        ci.sku.stock.quantity = b2b_sku.get("available_quantity", 0)
+                    if not b2b_sku.get("is_active", True):
+                        ci.unavailable_reason = "PRODUCT_BLOCKED"
+        
         return await self._build_response(cart)
 
     async def clear_cart(self, cart_id: UUID) -> None:
@@ -242,7 +260,4 @@ class CartService:
 
     async def merge_guest_cart(self, customer_id: UUID, session_id: UUID) -> CartResponse:
         merged_cart = await self.repository.merge_guest_into_user(customer_id, session_id)
-
-        await self.repository.session.commit()
-
         return await self._build_response(merged_cart)

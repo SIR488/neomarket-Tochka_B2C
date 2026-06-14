@@ -54,7 +54,7 @@ class CartRepository:
                     )
 
         result = await self.session.execute(query)
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
     async def get_item(self, cart_id: UUID, sku_id: UUID) -> Optional[CartItem]:
         query = select(CartItem).where(CartItem.cart_id == cart_id, CartItem.sku_id == sku_id)
@@ -132,10 +132,22 @@ class CartRepository:
         Сливает гостевую корзину в пользовательскую по правилу max(quantity).
         Возвращает user_cart.
         """
+        from sqlalchemy.orm import selectinload
+        
         user_cart = await self.get_user_cart(customer_id)
         guest_cart = await self.get_guest_cart(session_id)
 
         if not guest_cart or not guest_cart.cart_items:
+            if user_cart:
+                query = (select(Cart)
+                        .where(Cart.id == user_cart.id)
+                        .options(
+                            selectinload(Cart.cart_items)
+                            .selectinload(CartItem.sku)
+                            .selectinload(SKU.stock)
+                        ))
+                result = await self.session.execute(query)
+                return result.unique().scalar_one_or_none() or user_cart
             return user_cart or Cart(customer_id=customer_id)
 
         if not user_cart:
@@ -161,5 +173,14 @@ class CartRepository:
             self.session.add(new_item)
 
         await self.session.delete(guest_cart)
+        await self.session.flush()
 
-        return user_cart
+        query = (select(Cart)
+                .where(Cart.id == user_cart.id)
+                .options(
+                    selectinload(Cart.cart_items)
+                    .selectinload(CartItem.sku)
+                    .selectinload(SKU.stock)
+                ))
+        result = await self.session.execute(query)
+        return result.unique().scalar_one_or_none()

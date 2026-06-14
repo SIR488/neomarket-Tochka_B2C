@@ -40,6 +40,20 @@ class B2BClient:
         except (urllib.error.URLError, TimeoutError):
             raise HTTPException(status_code=502, detail = "Сервис товаров временно недоступен, попробуйте позже")
 
+    async def get_skus_by_ids(self, sku_ids: List[UUID]) -> Dict[str, dict]:
+        """Batch-запрос к B2B для получения данных нескольких SKU"""
+        if not sku_ids:
+            return {}
+        
+        ids_param = ",".join(str(sid) for sid in sku_ids)
+        resp, status = await asyncio.to_thread(
+            self._make_request, "GET", f"/api/v1/public/skus?ids={ids_param}", None
+        )
+        if status != 200:
+            raise B2BUnavailableError("Failed to fetch SKUs from B2B")
+        
+        return {item["id"]: item for item in resp.get("items", [])}
+    
     async def get_products_by_ids(self, product_ids: List[UUID]) -> Dict[UUID, dict]:
         """Batch-запрос к B2B для получения данных товаров"""
         if not product_ids:
@@ -57,7 +71,7 @@ class B2BClient:
     async def get_product_by_sku(self, sku_id: UUID) -> Optional[dict]:
         """Получить данные SKU из B2B"""
         resp, status = await asyncio.to_thread(
-            self._make_request, "GET", f"/api/v1/skus/{sku_id}", None
+            self._make_request, "GET", f"/api/v1/public/skus/{sku_id}", None
         )
         if status == 404:
             return None

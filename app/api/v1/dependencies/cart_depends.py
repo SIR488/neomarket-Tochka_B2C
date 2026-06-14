@@ -9,6 +9,7 @@ from app.api.v1.dependencies.customer_depends import get_current_customer_id_opt
 from app.infrastructure.repositories.sku_repository import SKURepository
 from app.infrastructure.repositories.cart_repository import CartRepository
 from app.infrastructure.b2b_client import B2BClient
+from app.api.v1.schemas.cart import CartResponse
 
 
 async def get_cart_service(db: AsyncSession = Depends(get_db)) -> CartService:
@@ -55,4 +56,14 @@ async def merge_guest_cart(
     """
     Сливает гостевую корзину в пользовательскую по правилу max(quantity).
     """
+    return await service.merge_guest_cart(customer_id, session_id)
+
+
+async def merge_guest_cart_direct(customer_id: UUID, session_id: UUID, db: AsyncSession) -> CartResponse:
+    """Прямой вызов слияния корзин (без Depends)"""
+    from app.application.services.cart_service import CartService
+    repository = CartRepository(db)
+    sku_repo = SKURepository(db)
+    b2b_client = B2BClient()
+    service = CartService(repository, sku_repo, b2b_client)
     return await service.merge_guest_cart(customer_id, session_id)
