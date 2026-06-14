@@ -1,5 +1,4 @@
-# app/application/services/breadcrumb_service.py
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 from app.api.v1.schemas.catalog import BreadcrumbResponse, BreadcrumbItem, BreadcrumbMeta
@@ -10,17 +9,13 @@ class BreadcrumbService:
         self.product_repo = product_repo
 
     async def get_breadcrumbs(
-        self, 
-        category_id: Optional[UUID] = None, 
-        product_id: Optional[UUID] = None
+            self,
+            category_id: Optional[UUID] = None,
+            product_id: Optional[UUID] = None
     ) -> Optional[BreadcrumbResponse]:
-        
+
         target_category_id = category_id
         product_entity = None
-
-        category_exists =  await self.category_repo.get_by_id(target_category_id)
-        if not category_exists:
-            return None
 
         if product_id:
             product_entity = await self.product_repo.get_by_id(product_id)
@@ -28,9 +23,19 @@ class BreadcrumbService:
                 return None
             target_category_id = product_entity.category_id
 
-        ancestors = await self.category_repo.get_ancestors(target_category_id)
+        if not target_category_id:
+            return None
 
-        items = []
+        category_exists = await self.category_repo.get_by_id(target_category_id)
+        if not category_exists:
+            return None
+
+        ancestors = await self.category_repo.get_ancestors(target_category_id)
+        if not ancestors:
+            return None
+
+        items: List[BreadcrumbItem] = []
+
         for idx, row in enumerate(ancestors):
             items.append(BreadcrumbItem(
                 id=row.id,

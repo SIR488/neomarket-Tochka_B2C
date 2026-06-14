@@ -2,24 +2,49 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.schemas.error import Error
 from app.infrastructure.database import get_db
 from app.infrastructure.repositories.category_repository import CategoryRepository
 from app.application.services.category_service import CategoryService
-from app.api.v1.schemas.catalog import CategoryTreeResponse, CategoryDetailResponse, FiltersResponse
+from app.api.v1.schemas.catalog import CategoryDetailResponse, FiltersResponse, CategoryNodeShort, CategoryNode
 
 router = APIRouter()
 
 async def get_category_service(db: AsyncSession = Depends(get_db)) -> CategoryService:
     repository = CategoryRepository(db)
-    return CategoryService(repository)
+    return CategoryService(repository, )
 
-@router.get("", response_model=CategoryTreeResponse, summary="Получить дерево категорий")
+@router.get("", response_model=list[CategoryNodeShort], summary="Получить плоское дерево категорий")
 async def get_categories(
     service: CategoryService = Depends(get_category_service)
-) -> CategoryTreeResponse:
-    tree = await service.get_category_tree()
-    return CategoryTreeResponse(items=tree)
+) -> list[CategoryNodeShort]:
+    tree = await service.get_category_flat_tree()
 
+    if not tree:
+        raise HTTPException(
+            status_code=422,
+            detail=Error(
+                code="ORPHAN_NODE",
+                message="Обнаружены категории с несуществующими родителями (broken hierarchy)"
+            ).model_dump()
+        )
+    return tree
+
+@router.get("/tree", response_model=list[CategoryNode], summary="Получить дерево категорий")
+async def get_categories(
+    service: CategoryService = Depends(get_category_service)
+) -> list[CategoryNode]:
+    tree = await service.get_category_tree()
+
+    if not tree:
+        raise HTTPException(
+            status_code=422,
+            detail=Error(
+                code="ORPHAN_NODE",
+                message="Обнаружены категории с несуществующими родителями (broken hierarchy)"
+            ).model_dump()
+        )
+    return tree
 @router.get("/{id}", response_model=CategoryDetailResponse, summary="Детальная информация о категории")
 async def get_category(
     id: UUID,

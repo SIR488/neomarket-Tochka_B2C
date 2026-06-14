@@ -2,84 +2,96 @@ import re
 from typing import Annotated, Any
 from uuid import UUID
 from fastapi import APIRouter, Query, Request, HTTPException, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database import get_db
-from app.infrastructure.repositories.product_repository import ProductRepository
 from app.application.services.product_service import ProductService
 from app.api.v1.schemas.catalog import (
     Product,
     ProductShortListResponse,
     SkuShort,
-    SortOption,
+    SortOption, ProductShort,
 )
 
 router = APIRouter()
 
-async def get_product_service(db: AsyncSession = Depends(get_db)) -> ProductService:
-    repository = ProductRepository(db)
-    return ProductService(repository)
+async def get_product_service() -> ProductService:
+    return ProductService()
 
 def parse_dynamic_filters(request: Request) -> dict[str, Any]:
     filters: dict[str, Any] = {}
-    pattern = re.compile(r'^filters\[([^\]]+)\](?:\[\])?$')
-    
+    pattern = re.compile(r'^filter\[([^\]]+)\](?:\[([^\]]+)\])?(?:\[\])?$')
+
     for key, value in request.query_params.multi_items():
         match = pattern.match(key)
-        if match:
-            filter_name = match.group(1)
-            if filter_name not in filters:
-                filters[filter_name] = value
-            else:
-                if not isinstance(filters[filter_name], list):
-                    filters[filter_name] = [filters[filter_name]]
-                filters[filter_name].append(value)
-    return filters
+        if not match:
+            continue
 
-@router.get("", response_model=ProductShortListResponse, summary="Получить список товаров")
+        main_key = match.group(1)
+        sub_key = match.group(2)
+
+        if sub_key:
+            if main_key not in filters:
+                filters[main_key] = {}
+            if isinstance(filters[main_key], dict):
+                if sub_key.endswith('[]') or key.endswith('[]'):
+                    if sub_key not in filters[main_key]:
+                        filters[main_key][sub_key] = []
+                    filters[main_key][sub_key].append(value)
+                else:
+                    filters[main_key][sub_key] = value
+        else:
+            if key.endswith('[]') or isinstance(value, list):
+                if main_key not in filters or not isinstance(filters[main_key], list):
+                    filters[main_key] = []
+                filters[main_key].append(value)
+            else:
+                filters[main_key] = value
+
+    return filters
+@router.get("", response_model=ProductShortListResponse)
 async def list_products(
     request: Request,
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
     offset: Annotated[int, Query(ge=0)] = 0,
-    category_id: UUID | None = Query(None, description="Фильтр по категории"),
-    sort: SortOption | None = Query(None, description="Сортировка"),
-    search: Annotated[str | None, Query(min_length=3, max_length=255)] = None,
-    service: ProductService = Depends(get_product_service)
-) -> ProductShortListResponse:
+    sort: SortOption | None = Query(None),
+    q: Annotated[str | None, Query(min_length=3, max_length=255)] = None,
+    service: ProductService = Depends(get_product_service),
+):
     dynamic_filters = parse_dynamic_filters(request)
     return await service.get_products(
-        limit=limit, offset=offset, category_id=category_id,
-        sort=sort, search=search, filters=dynamic_filters
+        limit=limit,
+        offset=offset,
+        sort=sort,
+        search=q,
+        filters=dynamic_filters,
     )
 
-@router.get("/{id}", response_model=Product, summary="Получить полную карточку товара")
+@router.get("/{id}", response_model=Product)
 async def get_product(
-    id: UUID, 
+    id: UUID,
     service: ProductService = Depends(get_product_service)
-) -> Product:
+):
     product = await service.get_product_detail(id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    if not product or product.status in ("BLOCKED", "DELETED"):
+        raise HTTPException(
+            status_code=404,
+            detail="Product not found"
+        )
     return product
 
-@router.get("/{id}/similar", response_model=ProductShortListResponse, summary="Получить похожие товары")
+@router.get("/{id}/similar", response_model=list[ProductShort])
 async def get_similar_products(
     id: UUID,
-    category: UUID = Query(..., description="Обязательный ID категории"),
     limit: Annotated[int, Query(ge=1, le=100)] = 8,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    service: ProductService = Depends(get_product_service)
-) -> ProductShortListResponse:
-    return await service.get_products(
-        limit=limit, offset=offset, category_id=category
-    )
+    service: ProductService = Depends(get_product_service),
+):
+    return await service.get_similar_products(id, limit)
 
-@router.get("/{product_id}/skus", response_model=list[SkuShort], summary="Получить список SKU")
+@router.get("/{product_id}/skus", response_model=list[SkuShort])
 async def list_product_skus(
     product_id: UUID,
     service: ProductService = Depends(get_product_service)
 ) -> list[SkuShort]:
-    product = await service.get_product_detail(product_id)
+    product = await service.get_product_skus(product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return [

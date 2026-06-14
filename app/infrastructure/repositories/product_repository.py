@@ -55,7 +55,7 @@ class ProductRepository:
             for attr_name, attr_values in filters.items():
                 if not isinstance(attr_values, list):
                     attr_values = [attr_values]
-                
+
                 sku_subquery = select(SKU.product_id).join(CharacteristicValue).where(
                     and_(
                         CharacteristicValue.name == attr_name.upper(),
@@ -117,26 +117,26 @@ class ProductRepository:
         total = total_count.scalar() or 0
 
         query = query.limit(limit).offset(offset)
-        
+
         result = await self.session.execute(query)
 
         return list(result.scalars().unique().all()), total
 
     async def get_by_id(self, product_id: UUID) -> Optional[Product]:
         """Получить полную информацию о товаре со всеми SKU и характеристиками"""
-        
+
         query = select(Product).options(
             selectinload(Product.skus).selectinload(SKU.characteristics),
             selectinload(Product.skus).selectinload(SKU.stock),
             selectinload(Product.category)
         ).where(Product.id == product_id)
-        
+
         result = await self.session.execute(query)
         return result.scalar_one_or_none()
-    
+
     async def get_facets(
-        self, 
-        category_id: UUID, 
+        self,
+        category_id: UUID,
         filters: Optional[Dict[str, Any]] = None
     ) -> List[tuple[str, str, int]]:
         query = (
@@ -170,6 +170,6 @@ class ProductRepository:
                 query = query.where(Product.id.in_(subq))
 
         query = query.group_by(CharacteristicValue.name, CharacteristicValue.value)
-        
+
         result = await self.session.execute(query)
         return result.all()
