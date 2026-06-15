@@ -19,20 +19,19 @@ class CartService:
         self.b2b_client = b2b_client
 
     async def check_sku(self, sku_id: UUID, requested_qty: int):
-        """Валидация SKU через B2B. Возвращает (sku, available_qty, issue_type, message)"""
         try:
-            product_data = await self.b2b_client.get_product_by_sku(sku_id)
+            sku_data = await self.b2b_client.get_sku_by_id(sku_id)
         except B2BUnavailableError:
             raise HTTPException(status_code=503, detail="B2B service unavailable")
         
-        if not product_data:
+        if not sku_data:
             return None, 0, CartValidationIssueType.PRODUCT_DELETED, "SKU не найден"
         
-        if not product_data.get("is_active"):
+        if not sku_data.get("is_active"):
             return None, 0, CartValidationIssueType.PRODUCT_BLOCKED, "Товар заблокирован"
         
-        avail = product_data.get("available_quantity", 0)
-        price = product_data.get("price", 0)
+        avail = sku_data.get("available_quantity", 0)
+        price = sku_data.get("price", 0)
         
         class TempSku:
             def __init__(self, data):
@@ -44,7 +43,7 @@ class CartService:
                 self.image_url = data.get("image_url")
                 self.stock = type('obj', (object,), {'quantity': avail})()
         
-        sku = TempSku(product_data)
+        sku = TempSku(sku_data)
         
         if avail == 0:
             return sku, 0, CartValidationIssueType.OUT_OF_STOCK, "Нет в наличии"
@@ -115,27 +114,24 @@ class CartService:
     async def get_cart(self, cart_id: UUID) -> CartResponse:
         cart = await self.repository.get_by_id(cart_id)
         
-        sku_ids = [ci.sku_id for ci in cart.cart_items]
-        
-        if sku_ids:
+        for ci in cart.cart_items:
             try:
-                skus_data = await self.b2b_client.get_skus_by_ids(sku_ids)
+                sku_data = await self.b2b_client.get_sku_by_id(ci.sku_id)
             except B2BUnavailableError:
                 raise HTTPException(status_code=503, detail="B2B service unavailable")
             
-            for ci in cart.cart_items:
-                b2b_sku = skus_data.get(str(ci.sku_id))
-                if b2b_sku:
-                    ci.sku.price = b2b_sku.get("price", ci.sku.price)
-                    if ci.sku.stock:
-                        ci.sku.stock.quantity = b2b_sku.get("available_quantity", 0)
-                    if not b2b_sku.get("is_active", True):
-                        ci.unavailable_reason = "PRODUCT_BLOCKED"
+            if sku_data:
+                ci.sku.price = sku_data.get("price", ci.sku.price)
+                if ci.sku.stock:
+                    ci.sku.stock.quantity = sku_data.get("available_quantity", 0)
+                if not sku_data.get("is_active", True):
+                    ci.unavailable_reason = "PRODUCT_BLOCKED"
+                elif sku_data.get("available_quantity", 0) == 0:
+                    ci.unavailable_reason = "OUT_OF_STOCK"
         
         return await self._build_response(cart)
 
     async def clear_cart(self, cart_id: UUID) -> None:
-        """Очистить корзину"""
         await self.repository.clear_cart(cart_id)
 
     async def add_item(self, cart_id: UUID, sku_id: UUID, quantity: int, price: int) -> Optional[CartResponse]:

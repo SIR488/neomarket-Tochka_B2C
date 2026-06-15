@@ -38,24 +38,9 @@ class B2BClient:
             except Exception:
                 return {"error": "unknown"}, e.code
         except (urllib.error.URLError, TimeoutError):
-            raise HTTPException(status_code=502, detail = "Сервис товаров временно недоступен, попробуйте позже")
+            raise HTTPException(status_code=502, detail="Сервис товаров временно недоступен, попробуйте позже")
 
-    async def get_skus_by_ids(self, sku_ids: List[UUID]) -> Dict[str, dict]:
-        """Batch-запрос к B2B для получения данных нескольких SKU"""
-        if not sku_ids:
-            return {}
-        
-        ids_param = ",".join(str(sid) for sid in sku_ids)
-        resp, status = await asyncio.to_thread(
-            self._make_request, "GET", f"/api/v1/public/skus?ids={ids_param}", None
-        )
-        if status != 200:
-            raise B2BUnavailableError("Failed to fetch SKUs from B2B")
-        
-        return {item["id"]: item for item in resp.get("items", [])}
-    
     async def get_products_by_ids(self, product_ids: List[UUID]) -> Dict[UUID, dict]:
-        """Batch-запрос к B2B для получения данных товаров"""
         if not product_ids:
             return {}
         
@@ -68,8 +53,7 @@ class B2BClient:
         
         return {UUID(item["id"]): item for item in resp.get("products", [])}
 
-    async def get_product_by_sku(self, sku_id: UUID) -> Optional[dict]:
-        """Получить данные SKU из B2B"""
+    async def get_sku_by_id(self, sku_id: UUID) -> Optional[dict]:
         resp, status = await asyncio.to_thread(
             self._make_request, "GET", f"/api/v1/public/skus/{sku_id}", None
         )
@@ -80,7 +64,6 @@ class B2BClient:
         return resp
 
     async def reserve(self, idempotency_key: UUID, order_id: UUID, items: List[dict]) -> dict:
-        """Резерв товаров в B2B"""
         data = {
             "idempotency_key": str(idempotency_key),
             "order_id": str(order_id),
@@ -90,7 +73,6 @@ class B2BClient:
         return {"status": status, "data": resp}
 
     async def unreserve(self, order_id: UUID, items: List[dict]) -> dict:
-        """Снятие резерва в B2B"""
         data = {
             "order_id": str(order_id),
             "items": [{"sku_id": str(i["sku_id"]), "quantity": i["quantity"]} for i in items]
@@ -99,7 +81,6 @@ class B2BClient:
         return {"status": status, "data": resp}
 
     async def fulfill(self, order_id: UUID, items: List[dict]) -> dict:
-        """Подтверждение выполнения заказа в B2B"""
         data = {
             "order_id": str(order_id),
             "items": [{"sku_id": str(i["sku_id"]), "quantity": i["quantity"]} for i in items]
@@ -108,8 +89,8 @@ class B2BClient:
         return {"status": status, "data": resp}
 
     async def list_products(self, params: Dict[str, Any]):
-        resp, status = await asyncio.to_thread(self._make_request,"GET", "/api/v1/public/products", params)
-        return  resp
+        resp, status = await asyncio.to_thread(self._make_request, "GET", "/api/v1/public/products", params)
+        return resp
 
     async def get_product(self, product_id: UUID):
         resp, status = await asyncio.to_thread(self._make_request, "GET", f"/api/v1/public/products/{product_id}")
@@ -120,18 +101,5 @@ class B2BClient:
         return resp
 
     async def get_product_skus(self, product_id: UUID):
-        resp, status =  await asyncio.to_thread(self._make_request, "GET", f"/api/v1/public/products/{product_id}/skus")
+        resp, status = await asyncio.to_thread(self._make_request, "GET", f"/api/v1/public/products/{product_id}/skus")
         return resp
-
-    async def get_facets(self, category_id: UUID, dynamic_filters: dict[str, Any] | None = None):
-        params = {"category_id": str(category_id)}
-        if dynamic_filters:
-            params.update(dynamic_filters)
-        resp, status =  await asyncio.to_thread(self._make_request, "GET", "/api/v1/public/facets", params)
-        return resp
-
-    async def get_categories(self, parent_id: UUID = None, only_root: bool = False):
-        params = {"parent_id": str(parent_id),
-                  "only_root": only_root}
-        resp, status =  await asyncio.to_thread(self._make_request, "GET", "/api/v1/categories", params)
-        return  resp

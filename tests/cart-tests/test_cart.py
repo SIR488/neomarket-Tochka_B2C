@@ -1,6 +1,9 @@
 import pytest
 from uuid import uuid4
 from httpx import AsyncClient
+from sqlalchemy import select
+
+from app.infrastructure.models import Stock
 
 
 @pytest.mark.asyncio
@@ -73,17 +76,10 @@ async def test_get_cart_enriched_with_b2b_data(
 
 
 @pytest.mark.asyncio
-async def test_unavailable_sku_shown_with_reason(
-    client: AsyncClient, db_session, monkeypatch
+async def test_unavailable_sku_out_of_stock(
+    client: AsyncClient, db_session, test_b2b_mock, test_sku, monkeypatch
 ):
-    """Тест для недоступного SKU (available_quantity: 0)"""
     from app.infrastructure.b2b_client import B2BClient
-    
-    # Мокируем B2B client для unavailable SKU
-    async def mock_get_product_by_sku_unavailable(self, sku_id):
-        return {"id": str(sku_id), "product_id": str(sku_id), "price": 1000, "available_quantity": 0, "is_active": True, "name": "Mock SKU"}
-    
-    monkeypatch.setattr(B2BClient, "get_product_by_sku", mock_get_product_by_sku_unavailable)
     
     email = f"test_{uuid4()}@example.com"
     await client.post("/api/v1/auth/register", json={
@@ -101,14 +97,76 @@ async def test_unavailable_sku_shown_with_reason(
     token = login_resp.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
     
-    sku_id = uuid4()
-    
-    resp = await client.post(
+    await client.post(
         "/api/v1/cart/items",
         headers=headers,
-        json={"sku_id": str(sku_id), "quantity": 1}
+        json={"sku_id": str(test_sku), "quantity": 1}
     )
-    assert resp.status_code == 409
+    
+    async def mock_get_sku_by_id_out_of_stock(self, sku_id):
+        return {
+            "id": str(sku_id),
+            "product_id": str(sku_id),
+            "price": 1000,
+            "available_quantity": 0,
+            "is_active": True,
+            "name": "Mock SKU"
+        }
+    
+    monkeypatch.setattr(B2BClient, "get_sku_by_id", mock_get_sku_by_id_out_of_stock)
+    
+    cart_resp = await client.get("/api/v1/cart/", headers=headers)
+    assert cart_resp.status_code == 200
+    data = cart_resp.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0].get("unavailable_reason") == "OUT_OF_STOCK"
+
+
+@pytest.mark.asyncio
+async def test_unavailable_sku_blocked(
+    client: AsyncClient, db_session, test_b2b_mock, test_sku, monkeypatch
+):
+    from app.infrastructure.b2b_client import B2BClient
+    
+    email = f"test_{uuid4()}@example.com"
+    await client.post("/api/v1/auth/register", json={
+        "email": email,
+        "password": "password123",
+        "first_name": "Test",
+        "last_name": "User",
+        "date_of_birth": "1990-01-01"
+    })
+    
+    login_resp = await client.post("/api/v1/auth/login", json={
+        "email": email,
+        "password": "password123"
+    })
+    token = login_resp.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    await client.post(
+        "/api/v1/cart/items",
+        headers=headers,
+        json={"sku_id": str(test_sku), "quantity": 1}
+    )
+    
+    async def mock_get_sku_by_id_blocked(self, sku_id):
+        return {
+            "id": str(sku_id),
+            "product_id": str(sku_id),
+            "price": 1000,
+            "available_quantity": 100,
+            "is_active": False,
+            "name": "Mock SKU"
+        }
+    
+    monkeypatch.setattr(B2BClient, "get_sku_by_id", mock_get_sku_by_id_blocked)
+    
+    cart_resp = await client.get("/api/v1/cart/", headers=headers)
+    assert cart_resp.status_code == 200
+    data = cart_resp.json()
+    assert len(data["items"]) == 1
+    assert data["items"][0].get("unavailable_reason") == "PRODUCT_BLOCKED"
 
 
 @pytest.mark.asyncio

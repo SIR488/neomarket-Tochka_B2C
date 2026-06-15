@@ -49,16 +49,6 @@ async def client(db_session):
 
 @pytest.fixture
 def test_b2b_mock(monkeypatch):
-    async def mock_get_skus_by_ids(self, sku_ids):
-        return {str(sid): {
-            "id": str(sid),
-            "product_id": str(sid),  # ключевое поле
-            "price": 1000,
-            "available_quantity": 100,
-            "is_active": True,
-            "name": "Mock SKU"
-        } for sid in sku_ids}
-    
     async def mock_get_products_by_ids(self, product_ids):
         return {pid: {
             "id": str(pid),
@@ -70,7 +60,7 @@ def test_b2b_mock(monkeypatch):
             "image_url": "https://example.com/image.jpg"
         } for pid in product_ids}
     
-    async def mock_get_product_by_sku(self, sku_id):
+    async def mock_get_sku_by_id(self, sku_id):
         return {
             "id": str(sku_id),
             "product_id": str(sku_id),
@@ -80,21 +70,18 @@ def test_b2b_mock(monkeypatch):
             "name": "Mock SKU"
         }
     
-    monkeypatch.setattr(B2BClient, "get_skus_by_ids", mock_get_skus_by_ids)
     monkeypatch.setattr(B2BClient, "get_products_by_ids", mock_get_products_by_ids)
-    monkeypatch.setattr(B2BClient, "get_product_by_sku", mock_get_product_by_sku)
+    monkeypatch.setattr(B2BClient, "get_sku_by_id", mock_get_sku_by_id)
 
 
 @pytest_asyncio.fixture(scope="function")
 async def test_sku(db_session):
-    """Создаёт тестовый SKU в БД для использования в тестах корзины"""
     from app.infrastructure.models import Product, Seller, Stock, Cart, CartItem
     
     product_id = uuid4()
     seller_id = uuid4()
     sku_id = uuid4()
     
-    # Создаём необходимые сущности со всеми обязательными полями
     seller = Seller(
         id=seller_id,
         name="Test Seller",
@@ -129,14 +116,8 @@ async def test_sku(db_session):
     
     yield sku_id
     
-    # Очищаем тестовые данные в правильном порядке (сначала ссылки, потом родительские сущности)
-    # Удаляем все cart_items, ссылающиеся на этот SKU
-    await db_session.execute(
-        delete(CartItem).where(CartItem.sku_id == sku_id)
-    )
-    await db_session.execute(
-        delete(Cart).where(Cart.customer_id.is_(None)).where(Cart.session_id.is_(None))
-    )
+    await db_session.execute(delete(CartItem).where(CartItem.sku_id == sku_id))
+    await db_session.execute(delete(Cart).where(Cart.customer_id.is_(None)).where(Cart.session_id.is_(None)))
     
     await db_session.delete(stock)
     await db_session.delete(sku)
