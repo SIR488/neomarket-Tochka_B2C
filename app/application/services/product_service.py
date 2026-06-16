@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from app.api.v1.schemas.catalog import ProductShortListResponse, Product, SkuShort, ProductShort
+from app.api.v1.schemas.catalog import ProductShortListResponse, Product, SkuShort, ProductShort, CatalogProductCard
 from app.infrastructure.b2b_client import B2BClient
 
 
@@ -49,15 +49,41 @@ class ProductService:
         data = await self.b2b_client.get_product(product_id)
         return Product.model_validate(data) if data else None
 
-    async def get_similar_products(self, product_id: UUID, limit=8):
-        params = {"limit": limit}
+    async def get_similar_products(
+        self,
+        product_id: UUID,
+        limit: int = 8,
+        offset: int = 0
+    ) -> ProductShortListResponse:
+        params = {"limit": limit, "offset": offset}
+
         data = await self.b2b_client.get_similar_products(product_id, params)
-        valid = [ProductShort.model_validate(item) for item in data]
-        similar = [
-            item for item in valid
-            if str(item.id) != str(product_id)
-        ]
-        return similar
+
+        items_data = data.get("items", data) if isinstance(data, dict) else data
+
+        mapped_items = []
+        for item in items_data:
+            if str(item.get("id") == product_id):
+                continue
+
+            mapped_items.append(CatalogProductCard(
+                id = item["id"],
+                name=item.get("title") or item.get("name", ""),
+                slug=item.get("slug"),
+                min_price=item.get("min_price") or item.get("price", 0),
+                old_price=item.get("old_price"),
+                has_stock=item.get("has_stock", True),
+                images=[{"id": "main", "url": item.get("cover_image"), "is_main": True}]
+                       if item.get("cover_image") else [],
+                rating=item.get("rating", 0),
+                reviews_count=item.get("reviews_count", 0),
+            ))
+
+        return ProductShortListResponse(
+            items=mapped_items,
+            total_count=len(mapped_items),
+            limit=limit,
+            offset=offset)
 
     async def get_product_skus(self, product_id: UUID):
         data = await self.b2b_client.get_product_skus(product_id)

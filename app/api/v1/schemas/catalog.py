@@ -206,7 +206,6 @@ class CatalogProductCard(BaseModel):
     min_price: int
     has_stock: bool
     images: list[ImageRef]
-    # остальные поля опционально
     slug: Optional[str] = None
     old_price: Optional[int] = None
     rating: Optional[float] = None
