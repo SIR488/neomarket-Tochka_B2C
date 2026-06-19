@@ -10,9 +10,17 @@ from app.api.v1.schemas.catalog import CategoryTreeResponse, CategoryDetailRespo
 
 router = APIRouter()
 
-async def get_category_service(db: AsyncSession = Depends(get_db)) -> CategoryService:
+from app.infrastructure.b2b_client import B2BClient
+
+async def get_b2b_client() -> B2BClient:
+    return B2BClient()
+
+async def get_category_service(
+    db: AsyncSession = Depends(get_db),
+    b2b_client: B2BClient = Depends(get_b2b_client)
+) -> CategoryService:
     repository = CategoryRepository(db)
-    return CategoryService(repository)
+    return CategoryService(repository, b2b_client)
 
 @router.get("", response_model=CategoryTreeResponse, summary="Получить дерево категорий")
 async def get_categories(

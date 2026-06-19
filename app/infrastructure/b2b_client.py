@@ -44,3 +44,9 @@ class B2BClient:
 
     async def get_product_skus(self, product_id: UUID):
         return await self._request("GET", f"/api/v1/products/{product_id}/skus")
+
+    async def get_categories(self):
+        resp, status = await self._request("GET", "/api/v1/catalog/categories")
+        if status != 200:
+            raise HTTPException(status_code=status, detail="Failed to fetch categories from B2B")
+        return resp

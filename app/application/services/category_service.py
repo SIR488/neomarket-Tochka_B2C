@@ -1,29 +1,33 @@
 from typing import List, Dict, Optional
 from uuid import UUID
-from app.infrastructure.repositories.category_repository import CategoryRepository
 from app.api.v1.schemas.catalog import CategoryNode, CategoryDetailResponse, CategoryParent, CategorySeo, CategoryMetaTags, FilterItem, ListFilter, RangeFilter, SwitchFilter, FiltersResponse
+from app.infrastructure.b2b_client import B2BClient
+from app.infrastructure.repositories.category_repository import CategoryRepository
+from fastapi import HTTPException
 
 class CategoryService:
-    def __init__(self, repository: CategoryRepository):
+    def __init__(self, repository: CategoryRepository, b2b_client: B2BClient):
         self.repository = repository
+        self.b2b_client = b2b_client
 
-    async def get_category_tree(self) -> List[CategoryNode] | None:
-        """Собирает дерево категорий из плоского списка"""
-        categories = await self.repository.get_all_active()
-
-        nodes: Dict[UUID, CategoryNode] = {
-            cat.id: CategoryNode(
-                id=cat.id,
-                name=cat.name,
-                parent_id=cat.parent_id,
+    def _build_tree_with_level_and_path(self, categories: List[Dict]) -> List[CategoryNode]:
+        nodes = {}
+        orphans = []
+        
+        # Сначала создаем узлы
+        for cat in categories:
+            nodes[cat["id"]] = CategoryNode(
+                id=cat["id"],
+                name=cat["name"],
+                parent_id=cat.get("parent_id"),
+                level=0,
+                path=[],
                 children=[]
             )
-            for cat in categories
-        }
-
-        tree: List[CategoryNode] = []
-        orphans: List[UUID] = []
-
+            
+        tree = []
+        
+        # Затем строим дерево
         for node in nodes.values():
             if node.parent_id is None:
                 tree.append(node)
@@ -32,14 +36,39 @@ class CategoryService:
                 if parent is not None:
                     parent.children.append(node)
                 else:
-                    # ← Orphan node обнаружен
                     orphans.append(node.id)
-                    tree.append(node)  # временно кладём в корень
+                    tree.append(node)
 
         if orphans:
-            return None
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "ORPHAN_NODE",
+                    "message": "category hierarchy is broken",
+                    "orphan_ids": [str(o) for o in orphans]
+                }
+            )
+            
+        # Теперь вычисляем level и path
+        def compute_level_and_path(node: CategoryNode, current_level: int, current_path: List[str]):
+            node.level = current_level
+            node.path = current_path + [node.name]
+            for child in node.children:
+                compute_level_and_path(child, current_level + 1, node.path)
+
+        for root in tree:
+            compute_level_and_path(root, 0, [])
 
         return tree
+
+    async def get_category_tree(self) -> List[CategoryNode]:
+        """Собирает дерево категорий из плоского списка"""
+        categories = await self.b2b_client.get_categories()
+        return self._build_tree_with_level_and_path(categories)
+
+    async def get_category_flat_tree(self) -> List[CategoryNode]:
+        categories = await self.b2b_client.get_categories()
+        return categories
 
     async def get_category_detail(
         self, 

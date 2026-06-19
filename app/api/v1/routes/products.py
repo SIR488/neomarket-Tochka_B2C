@@ -16,9 +16,13 @@ from app.api.v1.schemas.catalog import (
 
 router = APIRouter()
 
-async def get_product_service(db: AsyncSession = Depends(get_db)) -> ProductService:
-    repository = ProductRepository(db)
-    return ProductService(repository)
+from app.infrastructure.b2b_client import B2BClient
+
+async def get_b2b_client() -> B2BClient:
+    return B2BClient()
+
+async def get_product_service(b2b_client: B2BClient = Depends(get_b2b_client)) -> ProductService:
+    return ProductService(b2b_client)
 
 def parse_dynamic_filters(request: Request) -> dict[str, Any]:
     filters: dict[str, Any] = {}
@@ -82,7 +86,9 @@ async def get_product(
         )
     return product
 
-@router.get("/{id}/similar", response_model=ProductShortListResponse)
+from app.api.v1.schemas.catalog import CatalogProductCard
+
+@router.get("/{id}/similar", response_model=list[CatalogProductCard], summary="Похожие товары")
 async def get_similar_products(
     id: UUID,
     limit: Annotated[int, Query(ge=1, le=100)] = 8,

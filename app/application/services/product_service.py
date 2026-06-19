@@ -6,8 +6,8 @@ from app.infrastructure.b2b_client import B2BClient
 
 
 class ProductService:
-    def __init__(self):
-        self.b2b_client = B2BClient()
+    def __init__(self, b2b_client: B2BClient):
+        self.b2b_client = b2b_client
 
     async def get_products(
             self,
@@ -49,10 +49,22 @@ class ProductService:
         data = await self.b2b_client.get_product(product_id)
         return Product.model_validate(data) if data else None
 
-    async def get_similar_products(self, product_id: UUID, limit=8, offset=0):
-        params = {"limit": limit, "offset": offset}
+from app.api.v1.schemas.catalog import CatalogProductCard
+
+    async def get_similar_products(self, product_id: UUID, limit=8, offset=0) -> list[CatalogProductCard]:
+        params = {"limit": limit + 1, "offset": offset}
         data = await self.b2b_client.get_similar_products(product_id, params)
-        return ProductShortListResponse.model_validate(data)
+        
+        items = data.get("items", [])
+        filtered_items = []
+        for item in items:
+            if str(item.get("id")) == str(product_id):
+                continue
+            filtered_items.append(CatalogProductCard.model_validate(item))
+            if len(filtered_items) == limit:
+                break
+                
+        return filtered_items
 
     async def get_product_skus(self, product_id: UUID):
         data = await self.b2b_client.get_product_skus(product_id)
