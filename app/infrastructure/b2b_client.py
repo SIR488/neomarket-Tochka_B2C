@@ -151,6 +151,12 @@ class B2BClient:
         resp, status = await asyncio.to_thread(self._make_request, "GET", "/api/v1/public/facets", params)
         return resp
 
+    async def get_categories(self):
+        resp, status = await asyncio.to_thread(self._make_request, "GET", f"/api/v1/categories")
+        if status != 200:
+            raise B2BUnavailableError("Failed to fetch similar products from B2B")
+        return resp
+
     async def reserve(self, idempotency_key: UUID, order_id: UUID, items: List[dict]) -> ReserveResponse:
         data = {
             "idempotency_key": str(idempotency_key),

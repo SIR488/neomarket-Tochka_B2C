@@ -63,10 +63,10 @@ class ProductService:
 
         mapped_items = []
         for item in items_data:
-            if str(item.get("id") == product_id):
+            if str(item.get("id")) == str(product_id):
                 continue
 
-            mapped_items.append(CatalogProductCard(
+            mapped_items.append(ProductShort(
                 id = item["id"],
                 name=item.get("title") or item.get("name", ""),
                 slug=item.get("slug"),
@@ -79,11 +79,7 @@ class ProductService:
                 reviews_count=item.get("reviews_count", 0),
             ))
 
-        return ProductShortListResponse(
-            items=mapped_items,
-            total_count=len(mapped_items),
-            limit=limit,
-            offset=offset)
+        return mapped_items
 
     async def get_product_skus(self, product_id: UUID):
         data = await self.b2b_client.get_product_skus(product_id)

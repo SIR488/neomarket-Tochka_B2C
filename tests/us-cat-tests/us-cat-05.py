@@ -72,8 +72,7 @@ async def test_orphan_node_returns_422(client, mock_b2b_client):
         {"id": "child-1", "name": "Сирота", "parent_id": "non-existent-id"},
     ]
 
-    response = await client.get("/api/v1/catalog/categories/tree")   # ← правильный путь
-
+    response = await client.get("/api/v1/catalog/categories/tree")
     assert response.status_code == 422
     data = response.json()
     assert data["code"] == "ORPHAN_NODE"
